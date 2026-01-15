@@ -49,6 +49,11 @@ func (a *Application) Start(ctx context.Context) error {
 	if err := a.initConfig(); err != nil {
 		return fmt.Errorf("не удалось проинициализировать конфиг: %w", err)
 	}
+	errs := a.cfg.Validate()
+	if err := errors.Join(errs...); err != nil {
+		return fmt.Errorf("некорректный конфиг: %w", err)
+	}
+
 	log, logCloser, err := logger.New(a.cfg.Log)
 	if err != nil {
 		return fmt.Errorf("не удалось инициализировать логгер: %w", err)
@@ -65,7 +70,7 @@ func (a *Application) Start(ctx context.Context) error {
 	go func() {
 		defer a.wg.Done()
 		if err := a.httpSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			a.errChan <- fmt.Errorf("http server stopped with error: %w", err)
+			a.errChan <- fmt.Errorf("http server остановлен с ошибкой: %w", err)
 		}
 	}()
 
