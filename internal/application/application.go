@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/boldlogic/cbr-market-data-worker/internal/config"
+	"github.com/boldlogic/cbr-market-data-worker/internal/service"
 	httpserver "github.com/boldlogic/cbr-market-data-worker/internal/transport/http"
 	"github.com/boldlogic/cbr-market-data-worker/pkg/logger"
 	"github.com/sirupsen/logrus"
@@ -61,8 +62,10 @@ func (a *Application) Start(ctx context.Context) error {
 	a.Log = log
 	a.logCloser = logCloser
 
+	client := service.NewClient(a.cfg.Client, a.Log)
+	fmt.Print(client.RequestRegistry)
 	// HTTP transport
-	handler := httpserver.NewHandler(a.Log)
+	handler := httpserver.NewHandler(a.Log, *client)
 	router := httpserver.NewRouter(handler, a.Log, a.cfg)
 	a.httpSrv = httpserver.NewServer(router.Mux, a.cfg.Server, a.Log)
 

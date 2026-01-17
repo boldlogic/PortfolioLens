@@ -13,7 +13,7 @@ type CbRequest struct {
 
 func (h *Handler) execRequest(w http.ResponseWriter, r *http.Request) {
 	h.log.Info("Получен запрос на выполнение операции")
-	//ctx := r.Context()
+	ctx := r.Context()
 	var buf bytes.Buffer
 
 	_, err := buf.ReadFrom(r.Body)
@@ -39,6 +39,10 @@ func (h *Handler) execRequest(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+	//h.log.Info("запрос на выполнение %s", h.Service.RequestRegistry[service.RequestType(cb.Type)])
+	resp, err := h.Service.ExecRequest(ctx, cb.Type)
+	h.log.Info(resp)
+
 	h.SendResponse(w, APIResponse{
 		StatusCode: http.StatusOK,
 	})
