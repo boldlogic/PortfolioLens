@@ -39,9 +39,8 @@ func (h *Handler) execRequest(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	//h.log.Info("запрос на выполнение %s", h.Service.RequestRegistry[service.RequestType(cb.Type)])
-	resp, err := h.Service.ExecRequest(ctx, cb.Type)
-	h.log.Info(resp)
+	err = h.Service.Execute(ctx, cb.Type)
+	//h.log.Info(resp)
 
 	h.SendResponse(w, APIResponse{
 		StatusCode: http.StatusOK,

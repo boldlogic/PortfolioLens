@@ -3,10 +3,10 @@ package service
 type RequestType string
 
 type Endpoint struct {
-	url            string
-	method         string
-	headers        map[string]string
-	requestTimeout int
-	retryPolicy    string
-	retryCount     int
+	Url            string
+	Method         string
+	Headers        map[string]string
+	RequestTimeout int
+	RetryPolicy    string
+	RetryCount     int
 }

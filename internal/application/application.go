@@ -32,29 +32,15 @@ func New() *Application {
 	}
 }
 
-func (a *Application) initConfig() error {
-	var err error
-
-	a.cfg, err = config.ParseConfig()
-	if err != nil {
-		return fmt.Errorf("не удалось прочитать конфиг-файл: %w", err)
-	}
-	// err = a.cfg.Log.Validate()
-	// if err != nil {
-	// 	return fmt.Errorf("не удалось загрузить конфигурацию: %w", err)
-	// }
-	return nil
-}
+const defaultConfigPath = "config.yaml"
 
 func (a *Application) Start(ctx context.Context) error {
-	if err := a.initConfig(); err != nil {
-		return fmt.Errorf("не удалось проинициализировать конфиг: %w", err)
-	}
-	errs := a.cfg.Validate()
-	if err := errors.Join(errs...); err != nil {
-		return fmt.Errorf("некорректный конфиг: %w", err)
-	}
 
+	var err error
+	a.cfg, err = config.LoadConfig(defaultConfigPath)
+	if err != nil {
+		return err
+	}
 	log, logCloser, err := logger.New(a.cfg.Log)
 	if err != nil {
 		return fmt.Errorf("не удалось инициализировать логгер: %w", err)
@@ -63,8 +49,7 @@ func (a *Application) Start(ctx context.Context) error {
 	a.logCloser = logCloser
 
 	client := service.NewClient(a.cfg.Client, a.Log)
-	fmt.Print(client.RequestRegistry)
-	// HTTP transport
+
 	handler := httpserver.NewHandler(a.Log, *client)
 	router := httpserver.NewRouter(handler, a.Log, a.cfg)
 	a.httpSrv = httpserver.NewServer(router.Mux, a.cfg.Server, a.Log)
