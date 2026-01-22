@@ -9,8 +9,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/boldlogic/cbr-market-data-worker/internal/client"
 	"github.com/boldlogic/cbr-market-data-worker/internal/config"
 	"github.com/boldlogic/cbr-market-data-worker/internal/service"
+	"github.com/boldlogic/cbr-market-data-worker/internal/service/request_catalog"
 	"github.com/boldlogic/cbr-market-data-worker/internal/storage"
 	httpserver "github.com/boldlogic/cbr-market-data-worker/internal/transport/http"
 	"github.com/boldlogic/cbr-market-data-worker/pkg/logger"
@@ -62,9 +64,12 @@ func (a *Application) Start(ctx context.Context) error {
 		return fmt.Errorf("%w", err)
 	}
 
-	client := service.NewClient(a.cfg.Client, a.Log, db)
+	httpClient := client.NewClient(a.cfg.Client)
+	registry := request_catalog.NewProvider(a.cfg.Client)
 
-	handler := httpserver.NewHandler(a.Log, *client)
+	svc := service.NewService(httpClient, registry, db, a.Log)
+
+	handler := httpserver.NewHandler(a.Log, *svc)
 	router := httpserver.NewRouter(handler, a.Log, a.cfg)
 	a.httpSrv = httpserver.NewServer(router.Mux, a.cfg.Server, a.Log)
 

@@ -4,6 +4,7 @@ import "fmt"
 
 type ClientConfig struct {
 	Host      string     `yaml:"host"`
+	Timeout   int        `yaml:"timeout,omitempty" json:"timeout,omitempty"`
 	Endpoints []Endpoint `yaml:"endpoints" json:"endpoints"`
 }
 
@@ -20,6 +21,9 @@ type Endpoint struct {
 func (cl *ClientConfig) applyDefaults() {
 	if cl.Host == "" {
 		cl.Host = "www.cbr.ru"
+	}
+	if cl.Timeout == 0 {
+		cl.Timeout = 60
 	}
 	for i := range cl.Endpoints {
 		if cl.Endpoints[i].RequestTimeout <= 0 {

@@ -34,7 +34,7 @@ func (h *Handler) execRequest(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	err = h.Service.Execute(ctx, cb.Type)
+	err = h.Service.Executor(ctx, cb.Type)
 	//h.log.Info(resp)
 
 	h.SendResponse(w, APIResponse{

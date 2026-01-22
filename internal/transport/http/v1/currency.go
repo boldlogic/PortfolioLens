@@ -55,10 +55,6 @@ func getCurrenciesDTO(curr []models.Currency) []CurrencyDTO {
 
 func (h *Handler) GetCurrency(w http.ResponseWriter, r *http.Request) {
 
-	// code, err := strconv.Atoi(chi.URLParam(r, "code"))
-	// if err != nil {
-	//
-	// }
 	code := chi.URLParam(r, "code")
 	if code == "" {
 		h.SendResponse(w, APIResponse{

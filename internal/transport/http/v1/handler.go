@@ -6,11 +6,11 @@ import (
 )
 
 type Handler struct {
-	Service service.Client
+	Service service.Service
 	log     logrus.FieldLogger
 }
 
-func NewHandler(logger logrus.FieldLogger, svc service.Client) *Handler {
+func NewHandler(logger logrus.FieldLogger, svc service.Service) *Handler {
 	return &Handler{
 		log:     logger,
 		Service: svc,
