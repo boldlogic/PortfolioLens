@@ -9,6 +9,8 @@ import (
 )
 
 func (c *Service) GetCbrCurrencies(ctx context.Context, bdy []byte) error {
+	// ctx, cancel := context.WithTimeout(ctx, 1*time.Second)
+	// defer cancel()
 	currencies, err := cbr.ParseCurrenciesXML(bdy)
 	if err != nil {
 		return err

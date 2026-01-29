@@ -14,10 +14,10 @@ type Service struct {
 	log           logrus.FieldLogger
 	CurrencyRepo  CurrencyRepository
 	fxRateRepo    FxRateRepository
-	schedulerRepo SchedulerRepository
+	schedulerRepo JobRepository
 }
 
-func NewService(cl *client.Client, registry *request_catalog.Provider, currencyRepo CurrencyRepository, fxRateRepo FxRateRepository, schedulerRepo SchedulerRepository, log logrus.FieldLogger) *Service {
+func NewService(cl *client.Client, registry *request_catalog.Provider, currencyRepo CurrencyRepository, fxRateRepo FxRateRepository, schedulerRepo JobRepository, log logrus.FieldLogger) *Service {
 
 	return &Service{
 		client:   cl,
@@ -40,9 +40,15 @@ type FxRateRepository interface {
 	SaveFxRates([]models.FxRate) []error
 }
 
-type SchedulerRepository interface {
-	GetAction(code string) (models.Action, error)
+type JobRepository interface {
+	GetActionId(code string) (models.Action, error)
+	GetAction(id int) (models.Action, error)
 	SaveAction(row *models.Action) error
+
 	GetTask(uuid string) (models.Task, error)
-	CreateTask(row *models.Task) error
+
+	CreateTask(row *models.Task) (models.Task, error)
+	FetchTask(status int, newStatus int) (models.Task, error)
+	SetTaskStatusCompleted(id int) error
+	SetTaskStatusError(id int, err string) error
 }

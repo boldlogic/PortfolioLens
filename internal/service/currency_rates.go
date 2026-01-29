@@ -36,7 +36,6 @@ func (c *Service) GetCurrencyRatesDynamic(ctx context.Context, bdy []byte, ccy m
 			return fmt.Errorf("%w", err)
 		}
 	}
-	c.log.Info("rates сохранены")
 
 	return nil
 }

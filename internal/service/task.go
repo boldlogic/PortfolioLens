@@ -2,37 +2,46 @@ package service
 
 import (
 	"context"
-	"fmt"
+	"errors"
 
 	"github.com/boldlogic/cbr-market-data-worker/internal/models"
 	UUID "github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
-func (c *Service) CreateTask(ctx context.Context, task models.Task, action string) error {
-	act, err := c.schedulerRepo.GetAction(action)
-	if err != nil {
-		return err
+func (c *Service) CreateTask(ctx context.Context, task models.Task, action string) (models.Task, error) {
+	act, err := c.schedulerRepo.GetActionId(action)
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return models.Task{}, err
 	}
-	if act.Id == 0 {
-		return fmt.Errorf("Не найден тип события с кодом %s", action)
+	if act.Id == 0 || err == gorm.ErrRecordNotFound {
+		c.log.Warnf("Не найден тип события с кодом %s", action)
+		return models.Task{}, models.ErrActionNotFound
 	}
 	task.ActionId = act.Id
 
 	if task.Uuid != "" {
 		exists, err := c.schedulerRepo.GetTask(task.Uuid)
-		if err != nil {
-			return fmt.Errorf("Не удалось получить задачу по uuid %s", task.Uuid)
+		if err != nil && !errors.Is(err, models.ErrTaskNotFound) {
+			c.log.Warnf("Не удалось получить задачу по uuid %s", task.Uuid)
+			return models.Task{}, models.ErrTaskRetrievingError
 		}
 		if exists.Id != 0 {
-			return fmt.Errorf("Задача с uuid %s уже существует, id=%d", task.Uuid, exists.Id)
+			c.log.Infof("Задача с uuid %s уже существует, id=%d", task.Uuid, exists.Id)
+			return models.Task{}, models.ErrTaskAlreadyExists
+
 		}
 	} else {
 		task.Uuid = UUID.New().String()
-		err = c.schedulerRepo.CreateTask(&task)
-		if err != nil {
-			return fmt.Errorf("Не удалось создать задачу по uuid %s", task.Uuid)
-		}
 	}
 
-	return nil
+	c.log.Infof("Создаем задачу по uuid %s", task.Uuid)
+	created, err := c.schedulerRepo.CreateTask(&task)
+	if err != nil {
+		c.log.Warnf("Не удалось создать задачу по uuid %s", task.Uuid)
+		return models.Task{}, models.ErrTaskCreating
+
+	}
+
+	return created, nil
 }

@@ -1,85 +1,169 @@
 package service
 
-//	v1 "github.com/boldlogic/cbr-market-data-worker/internal/transport/http/v1"
+import (
+	"context"
+	"errors"
+	"fmt"
+	"net/http"
+	"time"
 
-// func (c *Service) ExecuteTask(ctx context.Context, tsk models.Task) error {
+	"github.com/boldlogic/cbr-market-data-worker/internal/client"
+	"github.com/boldlogic/cbr-market-data-worker/internal/models"
+	"github.com/boldlogic/cbr-market-data-worker/internal/service/cbr"
+)
 
-// 	plan, err := c.Provider.GetPlan(tsk.Type)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	var ccy models.Currency
-// 	var reqParams = make(map[string]string)
-// 	for _, param := range plan.Params {
-// 		if param.Type == "cbcode" {
-// 			ccy, err = c.CurrencyRepo.GetCurrency(tsk.Params[param.Type])
+func (s *Service) StartWorker(ctx context.Context) {
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+	s.log.Debug("Worker started")
+	for {
+		select {
+		case <-ticker.C:
+			err := s.ExecuteCreated(ctx)
 
-// 			if err != nil {
-// 				return err
-// 			}
-// 			if ccy.CbCode == "" {
-// 				c.log.Errorf("Не удалось определить цб код")
+			if err != nil {
+				if !errors.Is(err, models.ErrNoNewTasks) {
+					s.log.Error("Worker error:", err)
+				}
+			}
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+func (c *Service) ExecuteCreated(ctx context.Context) error {
 
-// 				return fmt.Errorf("Не удалось определить цб код")
-// 			}
-// 			reqParams[param.Name] = ccy.CbCode
-// 			c.log.Infof("Определен Код ЦБ %s по Коду валюты %s", ccy.CbCode, tsk.Params[param.Type])
-// 		}
-// 		if tsk.Params[param.Type] != "" && param.Type != "cbcode" {
-// 			reqParams[param.Name] = tsk.Params[string(param.Type)]
-// 		}
+	c.log.Debug("выбор задания")
+	task, err := c.schedulerRepo.FetchTask(models.TaskStatusCreated, models.TaskStatusInProgress)
+	if err != nil {
+		if errors.Is(err, models.ErrNoNewTasks) {
+			c.log.Debugf("%v", models.ErrNoNewTasks)
+			return nil
+		}
+		c.log.Errorf("произошла ошибка при выборе задания %v", err)
+		return err
+	}
+	c.log.Infof("выбрано задание для обработки id: %d, uuid: %s", task.Id, task.Uuid)
 
-// 	}
+	action, err := c.schedulerRepo.GetAction(task.ActionId)
+	if err != nil {
+		_ = c.schedulerRepo.SetTaskStatusError(task.Id, fmt.Sprintf("%v", err))
+		return err
+	}
+	c.log.Debug("определен тип задания %s для id: %d, uuid: %s", action.Code, task.Id, task.Uuid)
 
-// 	req, err := c.client.PrepareRequestWithParams(ctx, plan, reqParams)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	c.log.Infof("Подготовлен запрос к %s", req.URL)
+	plan, err := c.Provider.GetPlan(action.Code)
+	if err != nil {
+		_ = c.schedulerRepo.SetTaskStatusError(task.Id, fmt.Sprintf("%v", err))
+		return err
+	}
+	var ccy models.Currency
+	var reqParams = make(map[string]string)
+	for _, param := range plan.Params {
+		if param.Type == "cbcode" {
 
-// 	var resp client.Response
-// 	cnt := 0
-// 	for i := 0; i < plan.RetryCount+1; i++ {
-// 		resp, err = c.client.SendRequest(ctx, req)
+			ccy, err = c.CurrencyRepo.GetCurrency(*task.CharCode)
 
-// 		if resp.StatusCode == http.StatusOK && err == nil {
-// 			break
-// 		}
-// 		cnt++
-// 	}
-// 	if err != nil {
-// 		c.log.Errorf("Ошибка при получении данных. Кол-во попыток: %v", cnt)
-// 		return fmt.Errorf("Ошибка при получении данных")
-// 	}
-// 	if resp.StatusCode != http.StatusOK {
-// 		c.log.Errorf("Запрос завершен c ошибкой. StatusCode: %d", resp.StatusCode)
+			if err != nil {
+				_ = c.schedulerRepo.SetTaskStatusError(task.Id, fmt.Sprintf("%v", err))
+				return err
+			}
+			if ccy.CbCode == "" {
+				c.log.Errorf("для задания id: %d не удалось определить обязательный параметр: Код валюты ЦБ", task.Id)
+				err = fmt.Errorf("не удалось определить обязательный параметр: Код валюты ЦБ")
+				_ = c.schedulerRepo.SetTaskStatusError(task.Id, fmt.Sprintf("%v", err))
+				return err
+			}
+			reqParams[param.Name] = ccy.CbCode
+			c.log.Debug("для задания id: %d, uuid: %s определен Код валюты ЦБ: %s по Коду валюты ISO: %s", task.Id, task.Uuid, ccy.CbCode, *task.CharCode)
+		}
+		if param.Type == "datefrom" {
+			if task.DateFrom != nil {
+				reqParams[param.Name] = task.DateFrom.Format(cbr.DateFormat)
+			} else {
+				err = fmt.Errorf("параметр dateFrom обязателен для задания id: %d", task.Id)
+				_ = c.schedulerRepo.SetTaskStatusError(task.Id, fmt.Sprintf("%v", err))
+				return err
+			}
+		}
+		if param.Type == "dateto" {
+			if task.DateTo != nil {
+				reqParams[param.Name] = task.DateTo.Format(cbr.DateFormat)
+			} else {
+				err = fmt.Errorf("параметр dateTo обязателен для задания id: %d", task.Id)
+				_ = c.schedulerRepo.SetTaskStatusError(task.Id, fmt.Sprintf("%v", err))
+				return err
+			}
+		}
+	}
+	req, err := c.client.PrepareRequestWithParams(ctx, plan, reqParams)
+	if err != nil {
+		_ = c.schedulerRepo.SetTaskStatusError(task.Id, fmt.Sprintf("%v", err))
+		return err
+	}
+	c.log.Debug("для задания id: %d, uuid: %s подготовлен URL %s", task.Id, task.Uuid, req.URL)
 
-// 		return fmt.Errorf("Запрос завершен c ошибкой. StatusCode: %d", resp.StatusCode)
-// 	}
-// 	c.log.Infof("Запрос завершен успешно. StatusCode: %d", resp.StatusCode)
+	var resp client.Response
+	cnt := 0
+	for i := 0; i < plan.RetryCount+1; i++ {
+		resp, err = c.client.SendRequest(ctx, req)
 
-// 	if tsk.Type == "CBR_CURRENCIES" {
-// 		err = c.GetCbrCurrencies(ctx, resp.Body)
-// 		if err != nil {
-// 			return err
-// 		}
-// 	}
-// 	if tsk.Type == "CBR_CURRENCY_RATES" {
-// 		err = c.GetCurrencyRates(ctx, resp.Body)
-// 		if err != nil {
-// 			return err
-// 		}
-// 	}
-// 	if tsk.Type == "CBR_CURRENCY_RATES_HISTORY" {
-// 		err = c.GetCurrencyRatesDynamic(ctx, resp.Body, ccy)
-// 		c.log.Infof("GetCurrencyRatesDynamic")
+		if resp.StatusCode == http.StatusOK && err == nil {
+			break
+		}
+		cnt++
+	}
+	if err != nil {
 
-// 		if err != nil {
-// 			return err
-// 		}
-// 	}
-// 	c.log.Infof("Задание с типом %s выполнено успешно", tsk.Type)
+		err = fmt.Errorf("для задания id: %d, uuid: %s ошибка при получении данных. Кол-во попыток: %d", task.Id, task.Uuid, cnt+1)
+		c.log.Errorf("%v", err)
+		_ = c.schedulerRepo.SetTaskStatusError(task.Id, fmt.Sprintf("%v", err))
+		return err
+	}
+	if resp.StatusCode != http.StatusOK {
+		err = fmt.Errorf("для задания id: %d, uuid: %s запрос завершен c ошибкой. StatusCode: %d. Кол-во попыток: %d", task.Id, task.Uuid, resp.StatusCode, cnt+1)
+		c.log.Errorf("%v", err)
+		_ = c.schedulerRepo.SetTaskStatusError(task.Id, fmt.Sprintf("%v", err))
+		return err
+	}
+	c.log.Debug("для задания id: %d, uuid: %s запрос завершен успешно. StatusCode: %d. Кол-во попыток: %d", task.Id, task.Uuid, resp.StatusCode, cnt+1)
 
-// 	return nil
+	if action.Code == "currency.cb.fetch.currency_list" {
+		err = c.GetCbrCurrencies(ctx, resp.Body)
+		if err != nil {
+			c.log.Errorf("%v", err)
+			_ = c.schedulerRepo.SetTaskStatusError(task.Id, fmt.Sprintf("%v", err))
 
-// }
+			return err
+		}
+	}
+	if action.Code == "currency.cb.fetch.rates_today" {
+		err = c.GetCurrencyRates(ctx, resp.Body)
+		if err != nil {
+			c.log.Errorf("%v", err)
+			_ = c.schedulerRepo.SetTaskStatusError(task.Id, fmt.Sprintf("%v", err))
+
+			return err
+		}
+	}
+	if action.Code == "currency.cb.fetch.historical_rates" {
+		err = c.GetCurrencyRatesDynamic(ctx, resp.Body, ccy)
+		if err != nil {
+			c.log.Errorf("", err)
+			_ = c.schedulerRepo.SetTaskStatusError(task.Id, fmt.Sprintf("%v", err))
+
+			return err
+		}
+	}
+
+	err = c.schedulerRepo.SetTaskStatusCompleted(task.Id)
+	c.log.Debug("для задания id: %d, uuid: %s установлен статус %d", task.Id, task.Uuid, models.TaskStatusCompleted)
+	if err != nil { //&& !errors.Is(err, models.ErrNoNewTasks)
+		c.log.Errorf("%v", err)
+		_ = c.schedulerRepo.SetTaskStatusError(task.Id, fmt.Sprintf("%v", err))
+		return err
+	}
+
+	c.log.Info("задание id: %d, uuid: %s выполнено успешно", task.Id, task.Uuid)
+	return nil
+}

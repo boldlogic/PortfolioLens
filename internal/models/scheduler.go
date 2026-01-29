@@ -25,7 +25,7 @@ type Task struct {
 	DateFrom *time.Time `gorm:"column:date_from;type:date"` //2006-01-11
 	DateTo   *time.Time `gorm:"column:date_to;type:date"`   //2006-01-11
 
-	StatusId    int        `gorm:"column:status_id;foreignKey:Id;default:0"`
+	StatusId    int        `gorm:"column:status_id;default:0"`
 	ScheduledAt time.Time  `gorm:"column:scheduled_at;type:datetime2(3);default:SYSDATETIME()"`
 	Error       string     `gorm:"column:error;type:nvarchar(100)"`
 	CompletedAt *time.Time `gorm:"column:completed_at;type:datetime2(3)"`

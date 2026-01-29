@@ -3,6 +3,7 @@ package v1
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -21,25 +22,53 @@ func (h *Handler) CreateTask(w http.ResponseWriter, r *http.Request) {
 		h.SendResponse(w, APIResponse{
 			StatusCode: http.StatusBadRequest,
 			Body: Body{
-				Error: "Не удалось прочитать тело запроса",
+				Error: fmt.Sprintf("%v", err),
 			},
 		})
 
 		return
 	}
-	err = h.Service.CreateTask(ctx, reqTask, action)
+	created, err := h.Service.CreateTask(ctx, reqTask, action)
 	if err != nil {
-		h.SendResponse(w, APIResponse{
-			StatusCode: http.StatusConflict,
-			Body: Body{
-				Error: "Задача уже существует",
-			},
-		})
+		h.log.Errorf("Ошибка: %w", err)
+		if errors.Is(err, models.ErrActionNotFound) {
 
-		return
+			h.SendResponse(w, APIResponse{
+				StatusCode: http.StatusBadRequest,
+				Body: Body{
+					Error: "Action не существует. Проверьте введенные данные",
+				},
+			})
+
+			return
+		} else if errors.Is(err, models.ErrTaskAlreadyExists) {
+			h.SendResponse(w, APIResponse{
+				StatusCode: http.StatusConflict,
+				Body: Body{
+					Error: "Задача уже существует",
+				},
+			})
+
+			return
+		} else {
+			h.SendResponse(w, APIResponse{
+				StatusCode: http.StatusInternalServerError,
+				Body: Body{
+					Error: "Ошибка при создании задачи",
+				},
+			})
+
+			return
+		}
 	}
 	h.SendResponse(w, APIResponse{
 		StatusCode: http.StatusAccepted,
+		Body: newTaskRespDTO{
+			Id:          created.Id,
+			Uuid:        created.Uuid,
+			CreatedAt:   created.CreatedAt,
+			ScheduledAt: created.ScheduledAt,
+		},
 	})
 }
 
@@ -58,20 +87,16 @@ func parseTask(r io.ReadCloser) (models.Task, string, error) {
 	var dateFrom *time.Time
 	var dateTo *time.Time
 	if reqTask.Params.DateFrom != "" {
-
-		parsed, err := time.Parse(models.DateFormat, reqTask.Params.DateFrom) //2006-01-11
+		dateFrom, err = parseDate(reqTask.Params.DateFrom)
 		if err != nil {
-			return models.Task{}, "", err
+			return models.Task{}, action, fmt.Errorf("Некорректный формат dateFrom. Ожидается YYYY-MM-DD")
 		}
-		dateFrom = &parsed
 	}
 	if reqTask.Params.DateTo != "" {
-
-		parsed, err := time.Parse(models.DateFormat, reqTask.Params.DateTo) //2006-01-11
+		dateTo, err = parseDate(reqTask.Params.DateTo)
 		if err != nil {
-			return models.Task{}, "", err
+			return models.Task{}, action, fmt.Errorf("Некорректный формат dateTo. Ожидается YYYY-MM-DD")
 		}
-		dateTo = &parsed
 	}
 	task := models.Task{
 		Uuid: reqTask.Uuid,
@@ -83,24 +108,41 @@ func parseTask(r io.ReadCloser) (models.Task, string, error) {
 	return task, action, nil
 }
 
-func getTaskFromBody(r io.ReadCloser) (TaskDTO, error) {
+func getTaskFromBody(r io.ReadCloser) (newTaskDTO, error) {
 	var buf bytes.Buffer
 
 	_, err := buf.ReadFrom(r)
 	if err != nil {
-		return TaskDTO{}, fmt.Errorf("Не удалось прочитать тело запроса: %v", err)
+		return newTaskDTO{}, fmt.Errorf("Не удалось прочитать тело запроса: %v", err)
 	}
-	var tsk TaskDTO
+	var tsk newTaskDTO
 	err = json.Unmarshal(buf.Bytes(), &tsk)
 	if err != nil {
-		return TaskDTO{}, fmt.Errorf("Не удалось распарсить тело запроса: %v", err)
+		return newTaskDTO{}, fmt.Errorf("Не удалось распарсить тело запроса: %v", err)
 	}
 	return tsk, nil
 }
 
-func validateNewTask(task TaskDTO) error {
+func validateNewTask(task newTaskDTO) error {
 	if task.Action == "" {
 		return fmt.Errorf("Поле action обязательно")
 	}
+	if (task.Params.DateFrom != "" && task.Params.DateTo == "") || (task.Params.DateFrom == "" && task.Params.DateTo != "") {
+		return fmt.Errorf("Некорректный период")
+	}
+
 	return nil
+}
+
+func parseDate(date string) (*time.Time, error) {
+	var dt *time.Time
+	if date != "" {
+
+		parsed, err := time.Parse(models.DateFormat, date) //2006-01-11
+		if err != nil {
+			return nil, err
+		}
+		dt = &parsed
+	}
+	return dt, nil
 }

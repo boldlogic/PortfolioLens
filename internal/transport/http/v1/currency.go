@@ -16,7 +16,7 @@ func (h *Handler) GetCurrencies(w http.ResponseWriter, r *http.Request) {
 			h.log.Info("Справочник валют пуст")
 			h.SendResponse(w, APIResponse{
 				StatusCode: http.StatusOK,
-				Body:       []CurrencyDTO{},
+				Body:       []currencyDTO{},
 			})
 
 			return
@@ -39,10 +39,10 @@ func (h *Handler) GetCurrencies(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func getCurrenciesDTO(curr []models.Currency) []CurrencyDTO {
-	var res []CurrencyDTO
+func getCurrenciesDTO(curr []models.Currency) []currencyDTO {
+	var res []currencyDTO
 	for _, i := range curr {
-		res = append(res, CurrencyDTO{
+		res = append(res, currencyDTO{
 			ISOCode:  i.ISOCode,
 			CharCode: i.ISOCharCode,
 			NameRu:   i.Name,
@@ -90,7 +90,7 @@ func (h *Handler) GetCurrency(w http.ResponseWriter, r *http.Request) {
 
 		return
 	}
-	res := getCurrencyDTO(currency)
+	res := getcurrencyDTO(currency)
 	h.SendResponse(w, APIResponse{
 		StatusCode: http.StatusOK,
 		Body:       res,
@@ -98,9 +98,9 @@ func (h *Handler) GetCurrency(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func getCurrencyDTO(curr models.Currency) CurrencyDTO {
+func getcurrencyDTO(curr models.Currency) currencyDTO {
 
-	return CurrencyDTO{
+	return currencyDTO{
 		ISOCode:  curr.ISOCode,
 		CharCode: curr.ISOCharCode,
 		NameRu:   curr.Name,

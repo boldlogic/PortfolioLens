@@ -1,13 +1,6 @@
 package v1
 
-type CbRequest struct {
-	Type     string `json:"type"`
-	CharCode string `json:"code,omitempty"`
-	DateFrom string `json:"dateFrom,omitempty"`
-	DateTo   string `json:"dateTo,omitempty"`
-
-	Uuid string `json:"uuid,omitempty"`
-}
+import "time"
 
 type APIResponse struct {
 	StatusCode int
@@ -20,22 +13,28 @@ type Body struct {
 	Message string `json:"message,omitempty"`
 }
 
-type CurrencyDTO struct {
+type currencyDTO struct {
 	ISOCode  int    `json:"isoCode"`
 	CharCode string `json:"code"`
 	NameRu   string `json:"nameRu,omitempty"`
 	NameEn   string `json:"nameEn,omitempty"`
 }
 
-type TaskDTO struct {
+type newTaskDTO struct {
 	Action string `json:"action"`
 	Uuid   string `json:"uuid,omitempty"`
 
-	Params Params `json:"params,omitempty"`
+	Params params `json:"params,omitempty"`
 	//ScheduledAt string `json:"scheduledAt,omitempty"`
 }
+type newTaskRespDTO struct {
+	Id          int       `json:"id"`
+	Uuid        string    `json:"uuid"`
+	CreatedAt   time.Time `json:"createdAt"`
+	ScheduledAt time.Time `json:"scheduledAt"`
+}
 
-type Params struct {
+type params struct {
 	CcyCode  string `json:"ccyCode,omitempty"`
 	DateFrom string `json:"dateFrom,omitempty"`
 	DateTo   string `json:"dateTo,omitempty"`
