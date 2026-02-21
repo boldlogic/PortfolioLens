@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Лимиты QUIK</title>
+  <style>
+    :root {
+      --bg: #1a1d23;
+      --surface: #252830;
+      --border: #3d424d;
+      --text: #e6e8ec;
+      --muted: #8b909a;
+      --accent: #5c9ead;
+      --accent-hover: #7ab8c7;
+      --error: #c75c6f;
+      --success: #6b9e78;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 1.5rem;
+      line-height: 1.5;
+    }
+    h1 { font-size: 1.35rem; font-weight: 600; margin: 0 0 1rem 0; color: var(--text); }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+    .tabs {
+      display: flex;
+      gap: 0.25rem;
+    }
+    .tabs button {
+      padding: 0.5rem 1rem;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      cursor: pointer;
+      border-radius: 6px;
+      font-size: 0.9rem;
+    }
+    .tabs button:hover { background: #2e323c; border-color: var(--accent); }
+    .tabs button.active { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+    .api-input {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .api-input label { color: var(--muted); font-size: 0.85rem; }
+    .api-input input {
+      width: 14rem;
+      padding: 0.45rem 0.6rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--surface);
+      color: var(--text);
+      font-size: 0.9rem;
+    }
+    .api-input input::placeholder { color: var(--muted); }
+    .status {
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+    .status.loading { color: var(--accent); }
+    .status.error { color: var(--error); }
+    .status.ok { color: var(--success); }
+    .table-wrap {
+      overflow-x: auto;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.875rem;
+    }
+    th, td {
+      padding: 0.5rem 0.75rem;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    th {
+      background: #2e323c;
+      color: var(--muted);
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(92, 158, 173, 0.06); }
+    .num { text-align: right; font-variant-numeric: tabular-nums; }
+    .empty { padding: 2rem; text-align: center; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <h1>Лимиты QUIK</h1>
+  <div class="toolbar">
+    <div class="tabs" role="tablist">
+      <button type="button" role="tab" data-tab="all" aria-selected="true" class="active">Все</button>
+      <button type="button" role="tab" data-tab="money" aria-selected="false">Денежные</button>
+      <button type="button" role="tab" data-tab="securities" aria-selected="false">По бумагам</button>
+    </div>
+    <div class="api-input">
+      <label for="baseUrl">API:</label>
+      <input id="baseUrl" type="text" placeholder="http://localhost:8000" value="http://localhost:8000" />
+    </div>
+    <span id="status" class="status"></span>
+  </div>
+  <div class="table-wrap">
+    <table id="table">
+      <thead><tr id="thead"></tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+  <p id="empty" class="empty" style="display: none;">Нет данных. Запустите API и обновите страницу.</p>
+
+  <script>
+    const BASE = '/api/v1/quik/limits';
+    const endpoints = {
+      all: '',
+      money: '/money',
+      securities: '/securities'
+    };
+
+    const $ = (id) => document.getElementById(id);
+    const setStatus = (text, cls) => {
+      const s = $('status');
+      s.textContent = text;
+      s.className = 'status ' + (cls || '');
+    };
+
+    function renderAll(data) {
+      const cols = ['loadDate', 'clientCode', 'ticker', 'isin', 'firmCode', 'firmName', 'balance', 'acquisitionCcy'];
+      const headers = ['Дата', 'Код клиента', 'Тикер', 'ISIN', 'Код фирмы', 'Фирма', 'Баланс', 'Валюта'];
+      renderTable(cols, headers, data, (row) => ({
+        loadDate: row.loadDate,
+        clientCode: row.clientCode,
+        ticker: row.ticker || '—',
+        isin: row.isin != null ? row.isin : '—',
+        firmCode: row.firmCode || '—',
+        firmName: row.firmName || '—',
+        balance: row.balance,
+        acquisitionCcy: row.acquisitionCcy || '—'
+      }));
+    }
+
+    function renderMoney(data) {
+      const cols = ['loadDate', 'clientCode', 'currency', 'firmName', 'balance'];
+      const headers = ['Дата', 'Код клиента', 'Валюта', 'Фирма', 'Баланс'];
+      renderTable(cols, headers, data, (row) => ({
+        loadDate: row.loadDate,
+        clientCode: row.clientCode,
+        currency: row.currency || '—',
+        firmName: row.firmName || '—',
+        balance: row.balance
+      }));
+    }
+
+    function renderSecurities(data) {
+      const cols = ['loadDate', 'clientCode', 'ticker', 'tradeAccount', 'firmName', 'balance', 'acquisitionCcy', 'isin'];
+      const headers = ['Дата', 'Код клиента', 'Тикер', 'Счёт', 'Фирма', 'Баланс', 'Валюта', 'ISIN'];
+      renderTable(cols, headers, data, (row) => ({
+        loadDate: row.loadDate,
+        clientCode: row.clientCode,
+        ticker: row.ticker || '—',
+        tradeAccount: row.tradeAccount || '—',
+        firmName: row.firmName || '—',
+        balance: row.balance,
+        acquisitionCcy: row.acquisitionCcy || '—',
+        isin: row.isin || '—'
+      }));
+    }
+
+    function renderTable(cols, headers, data, mapRow) {
+      const thead = $('thead');
+      const tbody = $('tbody');
+      const empty = $('empty');
+      thead.innerHTML = headers.map(h => `<th>${h}</th>`).join('');
+      if (!data || data.length === 0) {
+        tbody.innerHTML = '';
+        empty.style.display = 'block';
+        empty.textContent = 'Нет записей.';
+        return;
+      }
+      empty.style.display = 'none';
+      const isNum = (k) => k === 'balance';
+      tbody.innerHTML = data.map(row => {
+        const r = mapRow(row);
+        return '<tr>' + cols.map(c => {
+          const val = r[c];
+          const cell = typeof val === 'number' ? val.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : (val ?? '—');
+          return '<td class="' + (isNum(c) ? 'num' : '') + '">' + escapeHtml(String(cell)) + '</td>';
+        }).join('') + '</tr>';
+      }).join('');
+    }
+
+    function escapeHtml(s) {
+      const div = document.createElement('div');
+      div.textContent = s;
+      return div.innerHTML;
+    }
+
+    async function load(tab) {
+      const base = ($('baseUrl').value || '').replace(/\/$/, '');
+      const url = base + BASE + endpoints[tab];
+      setStatus('Загрузка…', 'loading');
+      $('empty').style.display = 'none';
+      try {
+        const res = await fetch(url);
+        if (!res.ok) {
+          setStatus('Ошибка: ' + res.status + ' ' + res.statusText, 'error');
+          $('thead').innerHTML = '';
+          $('tbody').innerHTML = '';
+          $('empty').style.display = 'block';
+          $('empty').textContent = 'Ошибка ответа сервера. Проверьте URL API и CORS.';
+          return;
+        }
+        const data = await res.json();
+        if (tab === 'all') renderAll(data);
+        else if (tab === 'money') renderMoney(data);
+        else renderSecurities(data);
+        setStatus('Загружено записей: ' + (data?.length ?? 0), 'ok');
+      } catch (e) {
+        setStatus('Ошибка: ' + e.message, 'error');
+        $('thead').innerHTML = '';
+        $('tbody').innerHTML = '';
+        $('empty').style.display = 'block';
+        $('empty').textContent = 'Не удалось загрузить данные. Проверьте, что API запущен и доступен (CORS при открытии с file:// может блокировать запросы).';
+      }
+    }
+
+    document.querySelectorAll('.tabs button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tabs button').forEach(b => { b.classList.remove('active'); b.setAttribute('aria-selected', 'false'); });
+        btn.classList.add('active');
+        btn.setAttribute('aria-selected', 'true');
+        load(btn.dataset.tab);
+      });
+    });
+    $('baseUrl').addEventListener('change', () => load(document.querySelector('.tabs button.active').dataset.tab));
+    load('all');
+  </script>
+</body>
+</html>
