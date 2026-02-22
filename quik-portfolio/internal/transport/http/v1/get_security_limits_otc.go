@@ -9,24 +9,20 @@ import (
 	"go.uber.org/zap"
 )
 
-func (h *Handler) GetSecurityLimits(r *http.Request) (any, string, error) {
+func (h *Handler) GetSecurityLimitsOtc(r *http.Request) (any, string, error) {
 	ctx := r.Context()
-
 	date, err := h.readGetLimitsRequest(r)
 	if err != nil {
 		return nil, err.Error(), apperrors.ErrValidation
 	}
-	sls, err := h.service.GetSL(ctx, *date)
-	h.logger.Debug("", zap.Error(err), zap.Any("lim", sls))
-
+	sls, err := h.service.GetSLOtc(ctx, *date)
+	h.logger.Debug("GetSecurityLimitsOtc", zap.Error(err), zap.Any("lim", sls))
 	if err != nil {
-		if errors.Is(err, apperrors.ErrMLNotFound) {
+		if errors.Is(err, apperrors.ErrSLNotFound) {
 			return nil, err.Error(), apperrors.ErrNotFound
 		}
 		return nil, "", err
-
 	}
-
 	var resp []securityLimitDTO
 	for _, sl := range sls {
 		dto := securityLimitDTO{
@@ -43,17 +39,5 @@ func (h *Handler) GetSecurityLimits(r *http.Request) (any, string, error) {
 		}
 		resp = append(resp, dto)
 	}
-
 	return resp, "", nil
-}
-
-type securityLimitDTO struct {
-	LoadDate       string  `json:"loadDate"`
-	ClientCode     string  `json:"clientCode"`
-	Ticker         string  `json:"ticker"`
-	TradeAccount   string  `json:"tradeAccount"`
-	FirmName       string  `json:"firmName"`
-	Balance        float64 `json:"balance"`
-	AcquisitionCcy string  `json:"acquisitionCcy"`
-	ISIN           string  `json:"isin,omitempty"`
 }

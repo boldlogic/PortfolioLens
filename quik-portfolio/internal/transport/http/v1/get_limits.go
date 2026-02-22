@@ -1,18 +1,42 @@
 package v1
 
 import (
+	"fmt"
 	"net/http"
+	"time"
 
 	md "github.com/boldlogic/PortfolioLens/pkg/models"
+	"github.com/boldlogic/PortfolioLens/pkg/utils"
+	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/apperrors"
 )
 
-func (h *Handler) GetLimits(r *http.Request) (any, error) {
+func (h *Handler) readGetLimitsRequest(r *http.Request) (*time.Time, error) {
+	var date time.Time
+	dateReq := r.URL.Query().Get("date")
+	if dateReq != "" {
+		date, err := utils.ParseDate(dateReq)
+		if err != nil {
+			return nil, fmt.Errorf("Некорректный формат date. Ожидается YYYY-MM-DD")
+		}
+		return date, nil
+	}
+
+	date = time.Now()
+
+	return &date, nil
+}
+
+func (h *Handler) GetLimits(r *http.Request) (any, string, error) {
 
 	ctx := r.Context()
-	lim, err := h.service.GetLimits(ctx)
+	date, err := h.readGetLimitsRequest(r)
+	if err != nil {
+		return nil, err.Error(), apperrors.ErrValidation
+	}
+	lim, err := h.service.GetLimits(ctx, *date)
 
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	var resp []limitDTO
@@ -30,7 +54,7 @@ func (h *Handler) GetLimits(r *http.Request) (any, error) {
 		})
 	}
 
-	return resp, nil
+	return resp, "", nil
 
 }
 

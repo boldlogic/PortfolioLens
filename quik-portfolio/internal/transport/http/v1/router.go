@@ -16,8 +16,12 @@ func NewRouter(handler *Handler, logger *zap.Logger) *Router {
 	router := chi.NewRouter()
 	router.Route("/quik/limits", func(r chi.Router) {
 		r.Get("/", Adapt(handler.GetLimits))
+
 		r.Get("/money", Adapt(handler.GetMoneyLimits))
 		r.Get("/securities", Adapt(handler.GetSecurityLimits))
+		r.Post("/securities", Adapt(handler.AddSecurityLimit))
+		r.Get("/securities/otc", Adapt(handler.GetSecurityLimitsOtc))
+		r.Post("/securities/otc", Adapt(handler.AddSecurityLimitOtc))
 	})
 	router.Get("/quik/portfolio", Adapt(handler.GetPortfolio))
 	router.Post("/quik/firms", Adapt(handler.AddFirm))

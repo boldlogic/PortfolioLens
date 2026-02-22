@@ -6,11 +6,12 @@ import (
 	md "github.com/boldlogic/PortfolioLens/pkg/models"
 )
 
-func (h *Handler) GetPortfolio(r *http.Request) (any, error) {
+func (h *Handler) GetPortfolio(r *http.Request) (any, string, error) {
 	ctx := r.Context()
+
 	items, err := h.service.GetPortfolio(ctx)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	var resp []portfolioItemDTO
@@ -38,7 +39,7 @@ func (h *Handler) GetPortfolio(r *http.Request) (any, error) {
 		resp = append(resp, dto)
 	}
 
-	return resp, nil
+	return resp, "", nil
 }
 
 type portfolioItemDTO struct {

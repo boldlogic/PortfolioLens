@@ -14,14 +14,13 @@ import (
 	"go.uber.org/zap"
 )
 
-func (h *Handler) AddSecurityLimit(r *http.Request) (any, string, error) {
-
+func (h *Handler) AddSecurityLimitOtc(r *http.Request) (any, string, error) {
 	ctx := r.Context()
-	lim, err := h.readSecurityLimit(r)
+	lim, err := h.readSecurityLimitOtcReq(r)
 	if err != nil {
 		return nil, err.Error(), apperrors.ErrValidation
 	}
-	err = h.service.SaveSL(ctx, lim)
+	err = h.service.SaveSLOtc(ctx, lim)
 	if err != nil {
 		if errors.Is(err, apperrors.ErrSettleCode) {
 			return nil, err.Error(), apperrors.ErrBusinessValidation
@@ -29,69 +28,60 @@ func (h *Handler) AddSecurityLimit(r *http.Request) (any, string, error) {
 		return nil, "", err
 	}
 	return nil, "", nil
-
 }
 
-func (h *Handler) readSecurityLimit(r *http.Request) (models.SecurityLimit, error) {
-
+func (h *Handler) readSecurityLimitOtcReq(r *http.Request) (models.SecurityLimit, error) {
 	var buf bytes.Buffer
-
 	_, err := buf.ReadFrom(r.Body)
 	if err != nil {
 		h.logger.Warn("не удалось прочитать тело запроса", zap.Error(err))
-
 		return models.SecurityLimit{}, fmt.Errorf("Некорректный формат запроса")
 	}
-	var req securityLimitReqDTO
+	var req securityLimitOtcReqDTO
 	err = json.Unmarshal(buf.Bytes(), &req)
 	if err != nil {
 		h.logger.Warn("не удалось декодировать тело запроса", zap.Error(err))
 		return models.SecurityLimit{}, fmt.Errorf("Некорректный формат запроса")
 	}
-
 	var date time.Time
 	if req.LoadDate != "" {
 		date, err = utils.ParseDateDefault(req.LoadDate)
 		if err != nil {
 			return models.SecurityLimit{}, fmt.Errorf("Некорректный формат loadDate. Ожидается YYYY-MM-DD")
 		}
-
 	} else {
 		date = time.Now()
 	}
-
 	if req.ClientCode == "" {
 		return models.SecurityLimit{}, fmt.Errorf("clientCode должен быть заполнен")
 	}
 	if req.Ticker == "" {
 		return models.SecurityLimit{}, fmt.Errorf("ticker должен быть заполнен")
 	}
-	if req.TradeAccount == "" {
-		return models.SecurityLimit{}, fmt.Errorf("tradeAccount должен быть заполнен")
-	}
 	if req.FirmName == "" {
 		return models.SecurityLimit{}, fmt.Errorf("firmName должен быть заполнен")
 	}
-
+	isin := (*string)(nil)
+	if req.ISIN != "" {
+		isin = &req.ISIN
+	}
 	return models.SecurityLimit{
 		LoadDate:       date,
 		ClientCode:     req.ClientCode,
 		Ticker:         req.Ticker,
-		TradeAccount:   req.TradeAccount,
-		SettleCode:     req.SettleCode,
+		TradeAccount:   "OTC",
+		SettleCode:     "Tx",
 		FirmName:       req.FirmName,
 		Balance:        req.Balance,
 		AcquisitionCcy: req.AcquisitionCcy,
-		ISIN:           &req.ISIN,
+		ISIN:           isin,
 	}, nil
 }
 
-type securityLimitReqDTO struct {
+type securityLimitOtcReqDTO struct {
 	LoadDate       string  `json:"loadDate,omitempty"`
 	ClientCode     string  `json:"clientCode"`
 	Ticker         string  `json:"ticker"`
-	TradeAccount   string  `json:"tradeAccount"`
-	SettleCode     string  `json:"settleCode,omitempty"`
 	FirmName       string  `json:"firmName"`
 	Balance        float64 `json:"balance"`
 	AcquisitionCcy string  `json:"acquisitionCcy,omitempty"`

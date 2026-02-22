@@ -14,13 +14,7 @@ var (
 	ErrInstrumentNotFound        = errors.New("инструмент не найден")
 
 	ErrBoardsMerging = errors.New("не заполнить таблицу бордов")
-	ErrBoardCreating = errors.New("не удалось создать тип инструмента")
-
-	ErrMLNotFound   = errors.New("текущие позиции по деньгам не найдены")
-	ErrMLRetrieving = errors.New("ошибка при получении позиций по деньгам")
-
-	ErrSLNotFound   = errors.New("позиции по бумагам не найдены")
-	ErrSLRetrieving = errors.New("ошибка при получении позиций по бумагам")
+	ErrBoardCreating = errors.New("не удалось создать класс инструмента")
 
 	ErrLimitsNotFound = errors.New("позиции не найдены")
 	//ErrLimitsRetrieving = errors.New("ошибка при получении позиций")

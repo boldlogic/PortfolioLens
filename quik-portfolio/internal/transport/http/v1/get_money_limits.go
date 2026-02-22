@@ -1,17 +1,28 @@
 package v1
 
 import (
+	"errors"
 	"net/http"
 
 	md "github.com/boldlogic/PortfolioLens/pkg/models"
+	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/apperrors"
 )
 
-func (h *Handler) GetMoneyLimits(r *http.Request) (any, error) {
+func (h *Handler) GetMoneyLimits(r *http.Request) (any, string, error) {
 
 	ctx := r.Context()
-	mls, err := h.service.GetML(ctx)
+	date, err := h.readGetLimitsRequest(r)
 	if err != nil {
-		return nil, err
+		return nil, err.Error(), apperrors.ErrValidation
+	}
+
+	mls, err := h.service.GetML(ctx, *date)
+	if err != nil {
+		if errors.Is(err, apperrors.ErrMLNotFound) {
+			return nil, err.Error(), apperrors.ErrNotFound
+		}
+		return nil, "", err
+
 	}
 	var resp []moneyLimitdto
 	for _, ml := range mls {
@@ -24,7 +35,7 @@ func (h *Handler) GetMoneyLimits(r *http.Request) (any, error) {
 			Balance:    ml.Balance,
 		})
 	}
-	return resp, nil
+	return resp, "", nil
 }
 
 type moneyLimitdto struct {

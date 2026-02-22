@@ -34,10 +34,33 @@ func NotFound(detail string) HTTPErr {
 	}
 }
 
+func BadRequest(detail string) HTTPErr {
+	return HTTPErr{
+		Title:  "VALIDATION_ERROR",
+		Status: http.StatusBadRequest,
+		Detail: detail,
+	}
+}
+
+func UnprocessableEntity(detail string) HTTPErr {
+	return HTTPErr{
+		Title:  "BUSINESS_VALIDATION_ERROR",
+		Status: http.StatusUnprocessableEntity,
+		Detail: detail,
+	}
+}
 func Internal(detail string) HTTPErr {
 	return HTTPErr{
 		Title:  "SERVER_ERROR",
 		Status: 500,
 		Detail: "Что-то пошло не так",
+	}
+}
+
+func Conflict(detail string) HTTPErr {
+	return HTTPErr{
+		Title:  "CONFLICT",
+		Status: 409,
+		Detail: detail,
 	}
 }

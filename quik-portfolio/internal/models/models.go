@@ -138,6 +138,7 @@ type SecurityLimit struct {
 	ClientCode     string
 	Ticker         string
 	TradeAccount   string
+	SettleCode     string
 	FirmCode       string
 	FirmName       string
 	Balance        float64

@@ -3,14 +3,16 @@ package service
 import (
 	"context"
 	"errors"
+	"time"
 
+	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/apperrors"
 	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/models"
 )
 
-func (s *Service) GetLimits(ctx context.Context) ([]models.Limit, error) {
+func (s *Service) GetLimits(ctx context.Context, date time.Time) ([]models.Limit, error) {
 	var res []models.Limit
-	ml, err := s.limitsRepo.GetMoneyLimits(ctx)
-	if err != nil && !errors.Is(err, models.ErrMLNotFound) {
+	ml, err := s.limitsRepo.GetMoneyLimits(ctx, date)
+	if err != nil && !errors.Is(err, apperrors.ErrMLNotFound) {
 		return nil, err
 	}
 
@@ -25,8 +27,8 @@ func (s *Service) GetLimits(ctx context.Context) ([]models.Limit, error) {
 		})
 	}
 
-	sl, err := s.limitsRepo.GetSecurityLimits(ctx)
-	if err != nil && !errors.Is(err, models.ErrSLNotFound) {
+	sl, err := s.limitsRepo.GetSecurityLimits(ctx, date)
+	if err != nil && !errors.Is(err, apperrors.ErrSLNotFound) {
 		return nil, err
 	}
 

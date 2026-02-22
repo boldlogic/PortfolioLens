@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/models"
 	"go.uber.org/zap"
@@ -30,9 +31,16 @@ type InstrumentTypeRepository interface {
 }
 
 type LimitsRepository interface {
-	GetMoneyLimits(ctx context.Context) ([]models.MoneyLimit, error)
-	GetSecurityLimits(ctx context.Context) ([]models.SecurityLimit, error)
+	GetMoneyLimits(ctx context.Context, date time.Time) ([]models.MoneyLimit, error)
+
+	GetSecurityLimits(ctx context.Context, date time.Time) ([]models.SecurityLimit, error)
+	SaveSecurityLimit(ctx context.Context, s models.SecurityLimit) error
+	GetSecurityLimitsOtc(ctx context.Context, date time.Time) ([]models.SecurityLimit, error)
+	SaveSecurityLimitOtc(ctx context.Context, s models.SecurityLimit) error
+
 	GetPortfolio(ctx context.Context) ([]models.PortfolioItem, error)
+	InsertFirm(ctx context.Context, code string, name string) (models.Firm, error)
+	GetFirmByName(ctx context.Context, name string) (models.Firm, error)
 }
 
 func NewService(ctx context.Context, intrRepo InstrumentRepository, instrTypeRepo InstrumentTypeRepository, limitsRepo LimitsRepository, logger *zap.Logger) *Service {

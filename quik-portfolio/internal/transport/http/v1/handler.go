@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"time"
 
 	httputils "github.com/boldlogic/PortfolioLens/pkg/http_utils"
+	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/apperrors"
 	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/models"
 	"go.uber.org/zap"
 )
@@ -23,22 +25,33 @@ func NewHandler(svc Service, logger *zap.Logger) *Handler {
 }
 
 type Service interface {
-	GetML(ctx context.Context) ([]models.MoneyLimit, error)
-	GetSL(ctx context.Context) ([]models.SecurityLimit, error)
-	GetLimits(ctx context.Context) ([]models.Limit, error)
+	GetML(ctx context.Context, date time.Time) ([]models.MoneyLimit, error)
+	GetSL(ctx context.Context, date time.Time) ([]models.SecurityLimit, error)
+	GetSLOtc(ctx context.Context, date time.Time) ([]models.SecurityLimit, error)
+	SaveSL(ctx context.Context, sec models.SecurityLimit) error
+	SaveSLOtc(ctx context.Context, sec models.SecurityLimit) error
+	GetLimits(ctx context.Context, date time.Time) ([]models.Limit, error)
 	GetPortfolio(ctx context.Context) ([]models.PortfolioItem, error)
+	SaveFirm(ctx context.Context, code string, name string) (models.Firm, error)
 }
 
-type HandlerFunc func(r *http.Request) (any, error)
+type HandlerFunc func(r *http.Request) (any, string, error)
 
 func Adapt(h HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		data, err := h(r)
+		data, detail, err := h(r)
 		if err != nil {
 			var resp httputils.HTTPErr
 			switch {
-			case errors.Is(models.ErrSLNotFound, err) || errors.Is(models.ErrMLNotFound, err) || errors.Is(models.ErrLimitsNotFound, err) || errors.Is(models.ErrPortfolioNotFound, err):
-				resp = httputils.NotFound(err.Error())
+			case errors.Is(err, apperrors.ErrValidation):
+				resp = httputils.BadRequest(detail)
+			case errors.Is(err, apperrors.ErrBusinessValidation):
+				resp = httputils.UnprocessableEntity(detail)
+			case errors.Is(apperrors.ErrNotFound, err) || errors.Is(models.ErrLimitsNotFound, err) || errors.Is(models.ErrPortfolioNotFound, err):
+				resp = httputils.NotFound(detail)
+
+			case errors.Is(apperrors.ErrConflict, err):
+				resp = httputils.Conflict(err.Error())
 			default:
 				resp = httputils.Internal(err.Error())
 			}
@@ -50,7 +63,12 @@ func Adapt(h HandlerFunc) http.HandlerFunc {
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
-		httputils.WriteResp(w, http.StatusOK, data)
+
+		if r.Method == "POST" {
+			httputils.WriteResp(w, http.StatusCreated, data)
+		} else {
+			httputils.WriteResp(w, http.StatusOK, data)
+		}
 
 	}
 }

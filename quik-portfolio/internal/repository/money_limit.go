@@ -4,7 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"time"
 
+	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/apperrors"
 	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/models"
 	"go.uber.org/zap"
 )
@@ -25,7 +27,7 @@ const (
             PARTITION BY li.load_date, li.client_code, li.ccy, li.position_code, li.firm_code
         )
     FROM quik.money_limits li
-	WHERE li.load_date=cast(getdate()as date) 
+	WHERE li.load_date=cast(@p1 as date) 
 )
 SELECT
     load_date,
@@ -42,20 +44,20 @@ ORDER BY load_date, client_code, ccy, position_code, firm_code;
 `
 )
 
-func (r *Repository) GetMoneyLimits(ctx context.Context) ([]models.MoneyLimit, error) {
+func (r *Repository) GetMoneyLimits(ctx context.Context, date time.Time) ([]models.MoneyLimit, error) {
 	var result []models.MoneyLimit
 
 	r.logger.Debug("получение текущих позиций по деньгам")
 
-	rows, err := r.db.QueryContext(ctx, getMoneyLimits)
+	rows, err := r.db.QueryContext(ctx, getMoneyLimits, date)
 
 	if errors.Is(err, sql.ErrNoRows) {
 		r.logger.Error("текущие позиции по деньгам не найдены")
-		return nil, models.ErrMLNotFound
+		return nil, apperrors.ErrMLNotFound
 	} else if err != nil {
 		r.logger.Error("текущие позиции по деньгам не найдены", zap.Error(err))
 
-		return nil, models.ErrMLRetrieving
+		return nil, apperrors.ErrRetrievingData
 	}
 	defer rows.Close()
 
@@ -65,18 +67,18 @@ func (r *Repository) GetMoneyLimits(ctx context.Context) ([]models.MoneyLimit, e
 		if err != nil {
 			r.logger.Error("ошибка при получении текущих позиций по деньгам", zap.Error(err))
 
-			return nil, models.ErrMLRetrieving
+			return nil, apperrors.ErrRetrievingData
 		}
 		result = append(result, row)
 	}
 	if rows.Err() != nil {
-		return nil, models.ErrMLRetrieving
+		return nil, apperrors.ErrRetrievingData
 	}
 	r.logger.Debug("результаты получения позиций по деньгам", zap.Int("", len(result)))
 
 	if len(result) == 0 {
 		r.logger.Debug("позиции по деньгам не найдены")
-		return nil, models.ErrMLNotFound
+		return nil, apperrors.ErrMLNotFound
 
 	}
 	return result, nil
