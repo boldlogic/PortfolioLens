@@ -20,6 +20,8 @@ type Application struct {
 	cfg    *config.Config
 	Logger *zap.Logger
 
+	svc *service.Service
+
 	errChan chan error
 	wg      sync.WaitGroup
 	repo    *repository.Repository
@@ -56,7 +58,7 @@ func (a *Application) Start(ctx context.Context) error {
 	// if err != nil {
 	// 	return fmt.Errorf("%w", err)
 	// }
-	svc := service.NewService(ctx, a.repo, a.repo, a.repo, a.Logger)
+	a.svc = service.NewService(ctx, a.repo, a.repo, a.repo, a.Logger)
 	// for i := 0; i <= 60000; i++ {
 	// 	svc.SaveInstrument(ctx)
 	// }
@@ -64,9 +66,21 @@ func (a *Application) Start(ctx context.Context) error {
 	a.Logger.Debug("ok")
 	//fmt.Println(i)
 
-	handler := httpserver.NewHandler(svc, a.Logger)
+	a.wg.Add(1)
+	go func() {
+		defer a.wg.Done()
+		a.svc.RollForwardSecurityLimitsOtc(ctx)
+	}()
+
+	err = a.InitDictionaries(ctx)
+	if err != nil {
+		return err
+	}
+
+	handler := httpserver.NewHandler(a.svc, a.Logger)
 	router := httpserver.NewRouter(handler, a.Logger, a.cfg)
 	a.httpSrv = httpserver.New(router.Mux, a.cfg.Http, a.Logger)
+
 	a.httpWg.Add(1)
 
 	go func() {
@@ -113,4 +127,23 @@ func (a *Application) Wait(ctx context.Context, cancel context.CancelFunc) error
 	errWg.Wait()
 
 	return appErr
+}
+
+func (a *Application) InitDictionaries(ctx context.Context) error {
+	err := a.svc.ActualizeInstrumentTypes(ctx)
+	if err != nil {
+		a.Logger.Error("ошибка при инициализации справочника типов инструментов", zap.Error(err))
+		return err
+	}
+	err = a.svc.ActualizeInstrumentSubTypes(ctx)
+	if err != nil {
+		a.Logger.Error("ошибка при инициализации справочника подтипов инструментов", zap.Error(err))
+		return err
+	}
+	err = a.svc.ActualizeBoards(ctx)
+	if err != nil {
+		a.Logger.Error("ошибка при инициализации справочника классов инструментов", zap.Error(err))
+		return err
+	}
+	return nil
 }

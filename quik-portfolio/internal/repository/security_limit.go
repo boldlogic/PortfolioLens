@@ -41,7 +41,7 @@ INSERT INTO quik.security_limits
         li.balance,
         li.acquisition_ccy,
         li.isin,
-        li.ts,
+     --   li.ts,
         settle_max = MAX(li.settle_code) OVER (
             PARTITION BY li.load_date, li.client_code, li.ticker, li.trade_account, li.firm_code
         )
@@ -73,16 +73,22 @@ func (r *Repository) SaveSecurityLimit(ctx context.Context, s models.SecurityLim
 		s.LoadDate, s.ClientCode, s.Ticker, s.TradeAccount, s.SettleCode,
 		s.FirmCode, s.FirmName, s.Balance, s.AcquisitionCcy, s.ISIN)
 	if err != nil {
+		if IsExceeded(err) {
+			return err
+		}
+
 		var msErr mssql.Error
 		if errors.As(err, &msErr) && (msErr.Number == 2627 || msErr.Number == 2601) {
 			r.logger.Warn("лимит по бумаге уже существует", zap.Time("LoadDate", s.LoadDate), zap.String("ClientCode", s.ClientCode), zap.String("Ticker", s.Ticker),
 				zap.String("TradeAccount", s.TradeAccount), zap.String("SettleCode", s.SettleCode), zap.String("SettleCode", s.SettleCode), zap.String("FirmCode", s.FirmCode))
 			return apperrors.ErrConflict
 		}
+
 		r.logger.Error("ошибка при создании лимита по бумаге", zap.Time("LoadDate", s.LoadDate), zap.String("ClientCode", s.ClientCode), zap.String("Ticker", s.Ticker),
 			zap.String("TradeAccount", s.TradeAccount), zap.String("SettleCode", s.SettleCode), zap.String("SettleCode", s.SettleCode), zap.String("FirmCode", s.FirmCode), zap.Error(err))
 		return apperrors.ErrSavingData
 	}
+
 	r.logger.Debug("лимит по бумаге успешно сохранен", zap.Time("LoadDate", s.LoadDate), zap.String("ClientCode", s.ClientCode), zap.String("Ticker", s.Ticker),
 		zap.String("TradeAccount", s.TradeAccount), zap.String("SettleCode", s.SettleCode), zap.String("SettleCode", s.SettleCode), zap.String("FirmCode", s.FirmCode))
 	return nil
@@ -95,9 +101,12 @@ func (r *Repository) GetSecurityLimits(ctx context.Context, date time.Time) ([]m
 	r.logger.Debug("", zap.Error(err))
 
 	if err != nil {
+		if IsExceeded(err) {
+			return nil, err
+		}
 		if errors.Is(err, sql.ErrNoRows) {
 			r.logger.Debug("позиции по бумагам не найдены")
-			return nil, apperrors.ErrSLNotFound
+			return nil, apperrors.ErrNotFound
 		}
 		r.logger.Error("ошибка запроса позиций по бумагам", zap.Error(err))
 		return nil, apperrors.ErrRetrievingData
@@ -118,6 +127,9 @@ func (r *Repository) GetSecurityLimits(ctx context.Context, date time.Time) ([]m
 			&row.ISIN,
 		)
 		if err != nil {
+			if IsExceeded(err) {
+				return nil, err
+			}
 			r.logger.Error("ошибка при сканировании позиции по бумагам", zap.Error(err))
 			return nil, apperrors.ErrRetrievingData
 		}
@@ -129,7 +141,7 @@ func (r *Repository) GetSecurityLimits(ctx context.Context, date time.Time) ([]m
 	r.logger.Debug("результаты получения позиций по бумагам", zap.Int("", len(result)))
 	if len(result) == 0 {
 		r.logger.Debug("позиции по бумагам не найдены")
-		return nil, apperrors.ErrSLNotFound
+		return nil, apperrors.ErrNotFound
 
 	}
 

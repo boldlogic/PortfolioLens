@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/apperrors"
 	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/models"
 	"go.uber.org/zap"
 )
@@ -26,8 +27,11 @@ type InstrumentRepository interface {
 type InstrumentTypeRepository interface {
 	GetInstrumentTypeId(ctx context.Context, title string) (models.InstrumentType, error)
 	InsInstrumentType(ctx context.Context, title string) (models.InstrumentType, error)
+	SyncInstrumentTypesFromQuotes(ctx context.Context) error
 	GetInstrumentSubTypeId(ctx context.Context, typeId int16, title string) (models.InstrumentSubType, error)
 	InsInstrumentSubType(ctx context.Context, typeId int16, title string) (models.InstrumentSubType, error)
+	SyncInstrumentSubTypesFromQuotes(ctx context.Context) error
+	SyncBoardsFromQuotes(ctx context.Context) error
 }
 
 type LimitsRepository interface {
@@ -35,8 +39,12 @@ type LimitsRepository interface {
 
 	GetSecurityLimits(ctx context.Context, date time.Time) ([]models.SecurityLimit, error)
 	SaveSecurityLimit(ctx context.Context, s models.SecurityLimit) error
+
 	GetSecurityLimitsOtc(ctx context.Context, date time.Time) ([]models.SecurityLimit, error)
 	SaveSecurityLimitOtc(ctx context.Context, s models.SecurityLimit) error
+	GetSecurityLimitsOtcMaxDate(ctx context.Context) (*time.Time, error)
+	RollSecurityLimitsOtcFromDateToDate(ctx context.Context, dateFrom time.Time, dateTo time.Time) error
+	DeleteSecurityLimitsOtcBeforeDate(ctx context.Context, date time.Time) error
 
 	GetPortfolio(ctx context.Context) ([]models.PortfolioItem, error)
 	InsertFirm(ctx context.Context, code string, name string) (models.Firm, error)
@@ -71,7 +79,7 @@ func (s *Service) SaveInstrument(ctx context.Context) error {
 	} else if err == models.ErrInstrumentNotFound || id == 0 {
 
 		intrType, err := s.instrTypeRepo.GetInstrumentTypeId(ctx, quote.InstrumentType)
-		if err != nil && errors.Is(err, models.ErrInstrumentTypeNotFound) {
+		if err != nil && errors.Is(err, apperrors.ErrNotFound) {
 			s.logger.Warn("тип инструмента не найден, создаем", zap.String("тип", quote.InstrumentType), zap.Error(err))
 
 			intrType, err = s.instrTypeRepo.InsInstrumentType(ctx, quote.InstrumentType)

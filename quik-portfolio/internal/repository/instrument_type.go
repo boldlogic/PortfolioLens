@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 
+	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/apperrors"
 	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/models"
 	"go.uber.org/zap"
 )
@@ -24,7 +25,7 @@ const (
 		WHERE title=@p1
 	`
 
-	fillInstrumentTypes = `
+	mergeInstrumentTypesFromQuotes = `
 		WITH
 		src AS (
 			select distinct(instrument_type) from quik.current_quotes
@@ -36,13 +37,18 @@ const (
 	`
 )
 
-func (r *Repository) ActualizeInstrumentTypes(ctx context.Context) error {
+func (r *Repository) SyncInstrumentTypesFromQuotes(ctx context.Context) error {
 	r.logger.Debug("сохранение типов инструментов")
-	_, err := r.db.ExecContext(ctx, fillInstrumentTypes)
+
+	_, err := r.db.ExecContext(ctx, mergeInstrumentTypesFromQuotes)
 
 	if err != nil {
+		if IsExceeded(err) {
+			return err
+		}
+
 		r.logger.Error("ошибка сохранения типов инструментов", zap.Error(err))
-		return models.ErrInstrumentTypesMerging
+		return apperrors.ErrSavingData
 	}
 
 	return nil
@@ -56,7 +62,7 @@ func (r *Repository) InsInstrumentType(ctx context.Context, title string) (model
 
 	if err != nil {
 		r.logger.Error("ошибка сохранения типа инструмента", zap.String("title", title), zap.Error(err))
-		return models.InstrumentType{}, models.ErrInstrumentTypeCreating
+		return models.InstrumentType{}, apperrors.ErrSavingData
 	}
 
 	return res, nil
@@ -73,7 +79,7 @@ func (r *Repository) GetInstrumentTypeId(ctx context.Context, title string) (mod
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			r.logger.Error("типа инструмента не найден", zap.String("title", title))
-			return models.InstrumentType{}, models.ErrInstrumentTypeNotFound
+			return models.InstrumentType{}, apperrors.ErrNotFound
 		}
 
 		r.logger.Error("ошибка получения типа инструмента", zap.String("title", title), zap.Error(err))

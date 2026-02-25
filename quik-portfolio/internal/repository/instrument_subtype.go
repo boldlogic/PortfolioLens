@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 
+	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/apperrors"
 	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/models"
 	"go.uber.org/zap"
 )
@@ -24,7 +25,7 @@ const (
 	WHERE title=@p1 and type_id=@p2
 	`
 
-	ActualizeInstrumentSubTypes = `
+	mergeInstrumentSubTypesFromQuotes = `
 	  WITH
 		src AS (
 						select distinct(q.instrument_subtype),t.type_id from quik.current_quotes q
@@ -36,13 +37,16 @@ const (
 	values (src.instrument_subtype, src.type_id);`
 )
 
-func (r *Repository) ActualizeInstrumentSubTypes(ctx context.Context) error {
+func (r *Repository) SyncInstrumentSubTypesFromQuotes(ctx context.Context) error {
 	r.logger.Debug("сохранение подтипов инструментов")
-	_, err := r.db.ExecContext(ctx, ActualizeInstrumentSubTypes)
+	_, err := r.db.ExecContext(ctx, mergeInstrumentSubTypesFromQuotes)
 
 	if err != nil {
+		if IsExceeded(err) {
+			return err
+		}
 		r.logger.Error("ошибка сохранения подтипов инструментов", zap.Error(err))
-		return models.ErrInstrumentTypesMerging
+		return apperrors.ErrSavingData
 	}
 
 	return nil
@@ -59,7 +63,7 @@ func (r *Repository) GetInstrumentSubTypeId(ctx context.Context, typeId int16, t
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			r.logger.Error("подтип инструмента не найден", zap.String("title", title))
-			return models.InstrumentSubType{}, models.ErrInstrumentSubTypeNotFound
+			return models.InstrumentSubType{}, apperrors.ErrNotFound
 		}
 
 		r.logger.Error("ошибка получения подтипа инструмента", zap.String("title", title), zap.Error(err))
@@ -77,7 +81,7 @@ func (r *Repository) InsInstrumentSubType(ctx context.Context, typeId int16, tit
 
 	if err != nil {
 		r.logger.Error("ошибка сохранения подтипа инструмента", zap.String("title", title), zap.Error(err))
-		return models.InstrumentSubType{}, models.ErrInstrumentSubTypeCreating
+		return models.InstrumentSubType{}, apperrors.ErrSavingData
 	}
 
 	return res, nil

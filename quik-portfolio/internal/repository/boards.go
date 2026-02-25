@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 
+	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/apperrors"
 	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/models"
 	"go.uber.org/zap"
 )
@@ -15,7 +16,7 @@ const (
 		output inserted.*
 		VALUES (@p1, @p2)`
 
-	fillBoards = `
+	mergeBoardsFromQuotes = `
 		WITH
 		brd AS (
 			SELECT DISTINCT
@@ -42,19 +43,22 @@ func (r *Repository) InsBoard(ctx context.Context, code string, name string) (mo
 
 	if err != nil {
 		r.logger.Error("ошибка сохранения кода класса", zap.String("code", code), zap.Error(err))
-		return models.Board{}, models.ErrBoardCreating
+		return models.Board{}, apperrors.ErrSavingData
 	}
 
 	return res, nil
 }
 
-func (r *Repository) ActualizeBoards(ctx context.Context) error {
+func (r *Repository) SyncBoardsFromQuotes(ctx context.Context) error {
 	r.logger.Debug("сохранение кода класса")
-	_, err := r.db.ExecContext(ctx, fillBoards)
+	_, err := r.db.ExecContext(ctx, mergeBoardsFromQuotes)
 
 	if err != nil {
+		if IsExceeded(err) {
+			return err
+		}
 		r.logger.Error("ошибка сохранения кода класса", zap.Error(err))
-		return models.ErrBoardsMerging
+		return apperrors.ErrSavingData
 	}
 
 	return nil

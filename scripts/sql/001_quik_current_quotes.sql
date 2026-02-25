@@ -5,6 +5,7 @@ GO
 IF OBJECT_ID(N'quik.current_quotes', N'U') IS NULL
 BEGIN
     CREATE TABLE quik.current_quotes (
+        quote_date date NOT NULL default (getdate ()),
         instrument_class     CHAR(80) NOT NULL,
         ticker               CHAR(12)   NULL,
         registration_number  CHAR(30)   NULL,
@@ -16,9 +17,10 @@ BEGIN
         instrument_subtype    CHAR(60)   NULL,
         isin                  CHAR(12)   NULL,
         face_value            FLOAT      NULL,
-        base_currency         CHAR(3)    NULL,
-        quote_currency        CHAR(3)    NULL,
-        counter_currency      CHAR(3)    NULL,
+        currency         CHAR(4)    NULL,
+        base_currency         CHAR(4)    NULL,
+        quote_currency        CHAR(4)    NULL,
+        counter_currency      CHAR(4)    NULL,
         maturity_date         DATE       NULL,
         coupon_duration       INT        NULL,
         rw                    ROWVERSION NOT NULL,

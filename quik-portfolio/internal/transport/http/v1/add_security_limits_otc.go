@@ -69,8 +69,6 @@ func (h *Handler) readSecurityLimitOtcReq(r *http.Request) (models.SecurityLimit
 		LoadDate:       date,
 		ClientCode:     req.ClientCode,
 		Ticker:         req.Ticker,
-		TradeAccount:   "OTC",
-		SettleCode:     "Tx",
 		FirmName:       req.FirmName,
 		Balance:        req.Balance,
 		AcquisitionCcy: req.AcquisitionCcy,

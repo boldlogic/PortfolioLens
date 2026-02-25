@@ -2,10 +2,13 @@ package v1
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 
 	md "github.com/boldlogic/PortfolioLens/pkg/models"
+	"github.com/boldlogic/PortfolioLens/pkg/utils"
 	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/apperrors"
+	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/models"
 	"go.uber.org/zap"
 )
 
@@ -20,20 +23,23 @@ func (h *Handler) GetSecurityLimits(r *http.Request) (any, string, error) {
 	h.logger.Debug("", zap.Error(err), zap.Any("lim", sls))
 
 	if err != nil {
-		if errors.Is(err, apperrors.ErrMLNotFound) {
-			return nil, err.Error(), apperrors.ErrNotFound
+		if errors.Is(err, apperrors.ErrNotFound) {
+			return nil, fmt.Sprintf("позиции по бумагам за %s не найдены", date.Format(utils.DateFormat)), err
 		}
 		return nil, "", err
 
 	}
 
-	var resp []securityLimitDTO
+	return convertSecurityLimit(sls), "", nil
+}
+
+func convertSecurityLimit(sls []models.SecurityLimit) []securityLimitDTO {
+	var res []securityLimitDTO
 	for _, sl := range sls {
 		dto := securityLimitDTO{
 			LoadDate:       sl.LoadDate.Format(md.DateFormat),
 			ClientCode:     sl.ClientCode,
 			Ticker:         sl.Ticker,
-			TradeAccount:   sl.TradeAccount,
 			FirmName:       sl.FirmName,
 			Balance:        sl.Balance,
 			AcquisitionCcy: sl.AcquisitionCcy,
@@ -41,17 +47,15 @@ func (h *Handler) GetSecurityLimits(r *http.Request) (any, string, error) {
 		if sl.ISIN != nil {
 			dto.ISIN = *sl.ISIN
 		}
-		resp = append(resp, dto)
+		res = append(res, dto)
 	}
-
-	return resp, "", nil
+	return res
 }
 
 type securityLimitDTO struct {
 	LoadDate       string  `json:"loadDate"`
 	ClientCode     string  `json:"clientCode"`
 	Ticker         string  `json:"ticker"`
-	TradeAccount   string  `json:"tradeAccount"`
 	FirmName       string  `json:"firmName"`
 	Balance        float64 `json:"balance"`
 	AcquisitionCcy string  `json:"acquisitionCcy"`

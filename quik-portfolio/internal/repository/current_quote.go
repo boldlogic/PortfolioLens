@@ -6,6 +6,7 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/apperrors"
 	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/models"
 	"go.uber.org/zap"
 )
@@ -77,7 +78,7 @@ func (r *Repository) SelectNewCurrentQuote(ctx context.Context) (models.CurrentQ
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			r.logger.Error("типа инструмента не найден", zap.String("title", "title"))
-			return models.CurrentQuote{}, models.ErrInstrumentTypeNotFound
+			return models.CurrentQuote{}, apperrors.ErrNotFound
 		}
 
 		r.logger.Error("ошибка получения типа инструмента", zap.String("title", "title"), zap.Error(err))

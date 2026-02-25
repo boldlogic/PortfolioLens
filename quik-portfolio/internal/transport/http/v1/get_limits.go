@@ -46,8 +46,6 @@ func (h *Handler) GetLimits(r *http.Request) (any, string, error) {
 			LoadDate:       l.LoadDate.Format(md.DateFormat),
 			ClientCode:     l.ClientCode,
 			Ticker:         l.Ticker,
-			ISIN:           l.ISIN,
-			FirmCode:       l.FirmCode,
 			FirmName:       l.FirmName,
 			Balance:        l.Balance,
 			AcquisitionCcy: l.AcquisitionCcy,
@@ -62,8 +60,6 @@ type limitDTO struct {
 	LoadDate       string  `json:"loadDate,omitempty"`
 	ClientCode     string  `json:"clientCode,omitempty"`
 	Ticker         string  `json:"ticker,omitempty"`
-	ISIN           *string `json:"isin,omitempty"`
-	FirmCode       string  `json:"firmCode,omitempty"`
 	FirmName       string  `json:"firmName,omitempty"`
 	Balance        float64 `json:"balance,omitempty"`
 	AcquisitionCcy string  `json:"acquisitionCcy,omitempty"`

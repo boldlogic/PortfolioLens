@@ -2,9 +2,11 @@ package v1
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 
 	md "github.com/boldlogic/PortfolioLens/pkg/models"
+	"github.com/boldlogic/PortfolioLens/pkg/utils"
 	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/apperrors"
 )
 
@@ -18,8 +20,8 @@ func (h *Handler) GetMoneyLimits(r *http.Request) (any, string, error) {
 
 	mls, err := h.service.GetML(ctx, *date)
 	if err != nil {
-		if errors.Is(err, apperrors.ErrMLNotFound) {
-			return nil, err.Error(), apperrors.ErrNotFound
+		if errors.Is(err, apperrors.ErrNotFound) {
+			return nil, fmt.Sprintf("позиции по деньгам за %s не найдены", date.Format(utils.DateFormat)), err
 		}
 		return nil, "", err
 
