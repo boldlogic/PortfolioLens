@@ -37,7 +37,7 @@ type firmReqDto struct {
 }
 
 type firmRespDto struct {
-	Id   int8   `json:"id"`
+	Id   uint8  `json:"id"`
 	Code string `json:"firmCode"`
 	Name string `json:"firmName"`
 }

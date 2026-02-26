@@ -15,18 +15,18 @@ BEGIN
         registration_number NVARCHAR(30)   NULL,                     -- Рег.номер (char 250)
         full_name           NVARCHAR(100)   NULL,                    -- Инструмент (char 250)
         short_name          NVARCHAR(50)   NULL,                     -- Инструмент сокр. (char 100)
-        --class_code          NVARCHAR(15)    NULL,                    -- Код класса (char 20)
-       -- class_name          NVARCHAR(60)   NULL,                     -- Класс (char 200)
+
         isin                NVARCHAR(12)    NULL,                    -- ISIN (char 15)
         face_value          FLOAT       NULL,                    -- Номинал (float)
-        base_currency       bigint    NULL,                    -- Валюта / Базовая валюта
-        quote_currency      bigint     NULL,                    -- Котир.валюта
-        counter_currency    bigint    NULL,                    -- Сопр.валюта
+
+        currency         tinyint   NULL,
+        base_currency         tinyint   NULL,
+        quote_currency        tinyint    NULL,
+        counter_currency      tinyint    NULL,
+
         maturity_date       DATE        NULL,                    -- Погашение (date)
         coupon_duration     INT         NULL,                    -- Длит. купона (int)
 
-        type_id       smallint NOT NULL,
-        subtype_id       smallint NULL, 
         rw          ROWVERSION      NOT NULL,
         
         CONSTRAINT PK_quik_instruments PRIMARY KEY CLUSTERED (instrument_id),

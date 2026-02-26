@@ -14,21 +14,24 @@ type Router struct {
 
 func NewRouter(handler *Handler, logger *zap.Logger) *Router {
 	router := chi.NewRouter()
-	router.Route("/quik/limits", func(r chi.Router) {
-		r.Get("/", Adapt(handler.GetLimits))
-
-		r.Get("/money", Adapt(handler.GetMoneyLimits))
-		r.Get("/securities", Adapt(handler.GetSecurityLimits))
-		r.Post("/securities", Adapt(handler.AddSecurityLimit))
-		r.Get("/securities/otc", Adapt(handler.GetSecurityLimitsOtc))
-		r.Post("/securities/otc", Adapt(handler.AddSecurityLimitOtc))
+	router.Route("/quik", func(r chi.Router) {
+		r.Route("/limits", func(r chi.Router) {
+			r.Get("/", Adapt(handler.GetLimits))
+			r.Get("/money", Adapt(handler.GetMoneyLimits))
+			r.Get("/securities", Adapt(handler.GetSecurityLimits))
+			r.Post("/securities", Adapt(handler.AddSecurityLimit))
+			r.Get("/securities/otc", Adapt(handler.GetSecurityLimitsOtc))
+			r.Post("/securities/otc", Adapt(handler.AddSecurityLimitOtc))
+		})
+		r.Get("/portfolio", Adapt(handler.GetPortfolio))
+		r.Post("/firms", Adapt(handler.AddFirm))
+		r.Get("/tradepoints", Adapt(handler.GetTradePoints))
+		r.Get("/boards", Adapt(handler.GetBoards))
+		r.Get("/boards/{id}", Adapt(handler.GetBoard))
 	})
-	router.Get("/quik/portfolio", Adapt(handler.GetPortfolio))
-	router.Post("/quik/firms", Adapt(handler.AddFirm))
 	return &Router{
 		Mux:     router,
 		Handler: handler,
 		logger:  logger,
-		//config:  cfg,
 	}
 }

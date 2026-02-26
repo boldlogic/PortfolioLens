@@ -24,7 +24,7 @@ const (
 			,name
 		FROM quik.firms
 `
-selectFirmByName = `
+	selectFirmByName = `
 		SELECT  firm_id
 			,code
 			,name
@@ -33,7 +33,6 @@ selectFirmByName = `
 `
 )
 
-// GetFirmByName возвращает фирму по наименованию. При отсутствии записи возвращает apperrors.ErrNotFound.
 func (r *Repository) GetFirmByName(ctx context.Context, name string) (models.Firm, error) {
 	var res models.Firm
 	r.logger.Debug("получение фирмы по имени", zap.String("name", name))
@@ -65,7 +64,7 @@ func (r *Repository) InsertFirm(ctx context.Context, code string, name string) (
 		r.logger.Error("ошибка сохранения фирмы брокера", zap.String("code", code), zap.String("name", name), zap.Error(err))
 		return models.Firm{}, apperrors.ErrFirmCreating
 	}
-	r.logger.Debug("фирма успешно сохранена", zap.Int8("id", res.Id), zap.String("code", res.Code), zap.String("name", res.Name))
+	r.logger.Debug("фирма успешно сохранена", zap.Uint8("id", res.Id), zap.String("code", res.Code), zap.String("name", res.Name))
 
 	return res, nil
 }

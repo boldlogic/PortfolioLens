@@ -5,8 +5,8 @@ IF NOT EXISTS (
 )
 BEGIN
     CREATE TABLE quik.instrument_subtypes (
-        subtype_id       smallint  IDENTITY (1, 1), 
-        type_id       smallint          ,
+        subtype_id       tinyint  IDENTITY (1, 1), 
+        type_id       tinyint          ,
        	title nvarchar(150) NOT NULL,
         CONSTRAINT PK_quik_instrument_subtypes PRIMARY KEY CLUSTERED (subtype_id),
          CONSTRAINT FK_quik_instrument_type FOREIGN KEY (type_id) REFERENCES quik.instrument_types (type_id),

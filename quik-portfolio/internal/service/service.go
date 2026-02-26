@@ -11,10 +11,10 @@ import (
 )
 
 type Service struct {
-	logger        *zap.Logger
-	instrRepo     InstrumentRepository
-	instrTypeRepo InstrumentTypeRepository
-	limitsRepo    LimitsRepository
+	logger       *zap.Logger
+	instrRepo    InstrumentRepository
+	quikRefsRepo QuikRefsRepository
+	limitsRepo   LimitsRepository
 }
 
 type InstrumentRepository interface {
@@ -24,14 +24,19 @@ type InstrumentRepository interface {
 	GetInstrumentId(ctx context.Context, ticker string) (int, error)
 }
 
-type InstrumentTypeRepository interface {
+type QuikRefsRepository interface {
 	GetInstrumentTypeId(ctx context.Context, title string) (models.InstrumentType, error)
 	InsInstrumentType(ctx context.Context, title string) (models.InstrumentType, error)
 	SyncInstrumentTypesFromQuotes(ctx context.Context) error
-	GetInstrumentSubTypeId(ctx context.Context, typeId int16, title string) (models.InstrumentSubType, error)
-	InsInstrumentSubType(ctx context.Context, typeId int16, title string) (models.InstrumentSubType, error)
+	GetInstrumentSubTypeId(ctx context.Context, typeId uint8, title string) (models.InstrumentSubType, error)
+	InsInstrumentSubType(ctx context.Context, typeId uint8, title string) (models.InstrumentSubType, error)
 	SyncInstrumentSubTypesFromQuotes(ctx context.Context) error
 	SyncBoardsFromQuotes(ctx context.Context) error
+	TagBoardsTradePointId(ctx context.Context) error
+
+	GetTradePoints(ctx context.Context) ([]models.TradePoint, error)
+	GetBoards(ctx context.Context) ([]models.Board, error)
+	GetBoardByID(ctx context.Context, id uint8) (models.Board, error)
 }
 
 type LimitsRepository interface {
@@ -51,12 +56,12 @@ type LimitsRepository interface {
 	GetFirmByName(ctx context.Context, name string) (models.Firm, error)
 }
 
-func NewService(ctx context.Context, intrRepo InstrumentRepository, instrTypeRepo InstrumentTypeRepository, limitsRepo LimitsRepository, logger *zap.Logger) *Service {
+func NewService(ctx context.Context, intrRepo InstrumentRepository, quikRefsRepo QuikRefsRepository, limitsRepo LimitsRepository, logger *zap.Logger) *Service {
 	return &Service{
-		logger:        logger,
-		instrRepo:     intrRepo,
-		instrTypeRepo: instrTypeRepo,
-		limitsRepo:    limitsRepo,
+		logger:       logger,
+		instrRepo:    intrRepo,
+		quikRefsRepo: quikRefsRepo,
+		limitsRepo:   limitsRepo,
 	}
 }
 
@@ -78,11 +83,11 @@ func (s *Service) SaveInstrument(ctx context.Context) error {
 		return nil
 	} else if err == models.ErrInstrumentNotFound || id == 0 {
 
-		intrType, err := s.instrTypeRepo.GetInstrumentTypeId(ctx, quote.InstrumentType)
+		intrType, err := s.quikRefsRepo.GetInstrumentTypeId(ctx, quote.InstrumentType)
 		if err != nil && errors.Is(err, apperrors.ErrNotFound) {
 			s.logger.Warn("тип инструмента не найден, создаем", zap.String("тип", quote.InstrumentType), zap.Error(err))
 
-			intrType, err = s.instrTypeRepo.InsInstrumentType(ctx, quote.InstrumentType)
+			intrType, err = s.quikRefsRepo.InsInstrumentType(ctx, quote.InstrumentType)
 
 			if err != nil {
 				s.logger.Error("ошибка создания", zap.String("тип", quote.InstrumentType), zap.Error(err))
@@ -94,17 +99,17 @@ func (s *Service) SaveInstrument(ctx context.Context) error {
 		}
 		var instrSubType models.InstrumentSubType
 		if quote.InstrumentSubtype != nil {
-			instrSubType, err = s.instrTypeRepo.GetInstrumentSubTypeId(ctx, intrType.Id, *quote.InstrumentSubtype)
+			instrSubType, err = s.quikRefsRepo.GetInstrumentSubTypeId(ctx, intrType.Id, *quote.InstrumentSubtype)
 			if err != nil && errors.Is(err, models.ErrInstrumentSubTypeNotFound) {
 				s.logger.Warn("подтип инструмента не найден, создаем", zap.String("подтип", *quote.InstrumentSubtype), zap.Error(err))
-				instrSubType, err = s.instrTypeRepo.InsInstrumentSubType(ctx, intrType.Id, *quote.InstrumentSubtype)
+				instrSubType, err = s.quikRefsRepo.InsInstrumentSubType(ctx, intrType.Id, *quote.InstrumentSubtype)
 
 				if err != nil {
 					s.logger.Error("ошибка создания", zap.String("подтип", *quote.InstrumentSubtype), zap.Error(err))
 
 					return err
 				}
-				s.logger.Debug("создание подтипа инструмента успешно", zap.String("тип", *quote.InstrumentSubtype), zap.Int16("id", instrSubType.SubTypeId))
+				s.logger.Debug("создание подтипа инструмента успешно", zap.String("тип", *quote.InstrumentSubtype), zap.Uint8("id", instrSubType.SubTypeId))
 			}
 		}
 		inst := models.Instrument{

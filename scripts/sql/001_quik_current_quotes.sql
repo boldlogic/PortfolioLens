@@ -29,6 +29,7 @@ BEGIN
         last_price FLOAT      NULL,
         close_price FLOAT      NULL,
         accrued_int float null,
+        trading_status  CHAR(15)   NULL,
     );
 END
 GO

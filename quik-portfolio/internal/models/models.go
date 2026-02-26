@@ -7,22 +7,29 @@ import (
 )
 
 type CurrentQuote struct {
-	InstrumentClass    string
+	QuoteDate          *time.Time // Дата торгов
+	InstrumentClass    string     // Код инструмента+Борд
 	Ticker             string     // Код инструмента
 	RegistrationNumber *string    // Рег.номер инструмента
 	FullName           *string    // Полное название инструмента
 	ShortName          string     // Краткое название
-	ClassCode          string     // Код класса
+	ClassCode          string     // Код класса / Борд
 	ClassName          string     // Наименование класса
 	InstrumentType     string     // Тип инструмента
 	InstrumentSubtype  *string    // Подтип инструмента
 	ISIN               *string    // Международный идентификатор
 	FaceValue          *float64   // Номинал
-	BaseCurrency       string     // Валюта номинала / базовая валюта
+	Currency           string     // Валюта
+	BaseCurrency       string     // Базовая валюта
 	QuoteCurrency      *string    // Валюта котировки
 	CounterCurrency    *string    // Сопряженная валюта
 	MaturityDate       *time.Time // Дата погашения
 	CouponDuration     *int       // Длительность купона
+
+	LastPrice     *float64
+	ClosePrice    *float64
+	AccruedInt    *float64
+	TradingStatus *string
 }
 
 func (q *CurrentQuote) Clear() {
@@ -76,24 +83,18 @@ func (q CurrentQuote) String() string {
 }
 
 type InstrumentType struct {
-	Id    int16
+	Id    uint8
 	Title string
 }
 
 type InstrumentSubType struct {
-	SubTypeId int16
-	TypeId    int16
+	SubTypeId uint8
+	TypeId    uint8
 	Title     string
 }
 
-type Board struct {
-	Id   int16
-	Code string
-	Name string
-}
-
 type Firm struct {
-	Id   int8
+	Id   uint8
 	Code string
 	Name string
 }
@@ -106,9 +107,9 @@ type Instrument struct {
 	ShortName          string  `gorm:"column:short_name;type:char(100)"`          // Краткое название
 	ClassCode          string  `gorm:"column:class_code;type:char(20)"`           // Код класса
 	ClassName          string  `gorm:"column:class_name;type:char(200)"`          // Наименование класса
-	TypeId             int16
+	TypeId             uint8
 	Type               InstrumentType // Тип инструмента
-	SubTypeId          *int16
+	SubTypeId          *uint8
 	SubType            InstrumentSubType // Подтип инструмента
 	//InstrumentType     string     `gorm:"column:instrument_type;type:char(100)"`
 	//InstrumentSubtype  string     `gorm:"column:instrument_subtype;type:char(100)"`

@@ -52,7 +52,7 @@ func (r *Repository) SyncInstrumentSubTypesFromQuotes(ctx context.Context) error
 	return nil
 }
 
-func (r *Repository) GetInstrumentSubTypeId(ctx context.Context, typeId int16, title string) (models.InstrumentSubType, error) {
+func (r *Repository) GetInstrumentSubTypeId(ctx context.Context, typeId uint8, title string) (models.InstrumentSubType, error) {
 	//to-do добавить подсчет времени
 	res := models.InstrumentSubType{}
 	r.logger.Debug("сохранение подтипа инструмента", zap.String("title", title))
@@ -73,7 +73,7 @@ func (r *Repository) GetInstrumentSubTypeId(ctx context.Context, typeId int16, t
 	return res, nil
 }
 
-func (r *Repository) InsInstrumentSubType(ctx context.Context, typeId int16, title string) (models.InstrumentSubType, error) {
+func (r *Repository) InsInstrumentSubType(ctx context.Context, typeId uint8, title string) (models.InstrumentSubType, error) {
 	res := models.InstrumentSubType{}
 	r.logger.Debug("сохранение подтипа инструмента", zap.String("title", title))
 	row := r.db.QueryRowContext(ctx, insInstrumentSubType, typeId, title)

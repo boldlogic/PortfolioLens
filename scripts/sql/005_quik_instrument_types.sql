@@ -5,7 +5,7 @@ IF NOT EXISTS (
 )
 BEGIN
     CREATE TABLE quik.instrument_types (
-        type_id       smallint  IDENTITY (1, 1)          ,
+        type_id       tinyint  IDENTITY (1, 1)          ,
        	title nvarchar(150) NOT NULL,
         CONSTRAINT PK_quik_instrument_types PRIMARY KEY CLUSTERED (type_id),
         CONSTRAINT UQ_quik_instrument_types_title UNIQUE (title)

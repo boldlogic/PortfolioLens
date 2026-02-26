@@ -52,7 +52,7 @@ func (r *Repository) GetMoneyLimits(ctx context.Context, date time.Time) ([]mode
 	rows, err := r.db.QueryContext(ctx, getMoneyLimits, date)
 
 	if errors.Is(err, sql.ErrNoRows) {
-		r.logger.Error("текущие позиции по деньгам не найдены")
+		r.logger.Warn("текущие позиции по деньгам не найдены")
 		return nil, apperrors.ErrNotFound
 	} else if err != nil {
 		if IsExceeded(err) {
@@ -84,7 +84,7 @@ func (r *Repository) GetMoneyLimits(ctx context.Context, date time.Time) ([]mode
 	r.logger.Debug("результаты получения позиций по деньгам", zap.Int("", len(result)))
 
 	if len(result) == 0 {
-		r.logger.Debug("позиции по деньгам не найдены")
+		r.logger.Warn("позиции по деньгам не найдены")
 		return nil, apperrors.ErrNotFound
 
 	}

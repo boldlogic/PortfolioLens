@@ -33,6 +33,10 @@ type Service interface {
 	GetLimits(ctx context.Context, date time.Time) ([]models.Limit, error)
 	GetPortfolio(ctx context.Context) ([]models.PortfolioItem, error)
 	SaveFirm(ctx context.Context, code string, name string) (models.Firm, error)
+
+	GetTradePoints(ctx context.Context) ([]models.TradePoint, error)
+	GetBoards(ctx context.Context) ([]models.Board, error)
+	GetBoardByID(ctx context.Context, id uint8) (models.Board, error)
 }
 
 type HandlerFunc func(r *http.Request) (any, string, error)

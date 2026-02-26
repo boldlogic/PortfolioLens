@@ -4,19 +4,21 @@ import "context"
 
 func (s *Service) ActualizeInstrumentTypes(ctx context.Context) error {
 
-	err := s.instrTypeRepo.SyncInstrumentTypesFromQuotes(ctx)
+	err := s.quikRefsRepo.SyncInstrumentTypesFromQuotes(ctx)
 	return err
 
 }
 
 func (s *Service) ActualizeInstrumentSubTypes(ctx context.Context) error {
 
-	err := s.instrTypeRepo.SyncInstrumentSubTypesFromQuotes(ctx)
+	err := s.quikRefsRepo.SyncInstrumentSubTypesFromQuotes(ctx)
 	return err
 
 }
 
 func (s *Service) ActualizeBoards(ctx context.Context) error {
-	err := s.instrTypeRepo.SyncBoardsFromQuotes(ctx)
-	return err
+	if err := s.quikRefsRepo.SyncBoardsFromQuotes(ctx); err != nil {
+		return err
+	}
+	return s.quikRefsRepo.TagBoardsTradePointId(ctx)
 }
