@@ -35,6 +35,7 @@ type Service interface {
 	SaveFirm(ctx context.Context, code string, name string) (models.Firm, error)
 
 	GetTradePoints(ctx context.Context) ([]models.TradePoint, error)
+	GetTradePointByID(ctx context.Context, id uint8) (models.TradePoint, error)
 	GetBoards(ctx context.Context) ([]models.Board, error)
 	GetBoardByID(ctx context.Context, id uint8) (models.Board, error)
 }

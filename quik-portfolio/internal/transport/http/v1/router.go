@@ -26,6 +26,8 @@ func NewRouter(handler *Handler, logger *zap.Logger) *Router {
 		r.Get("/portfolio", Adapt(handler.GetPortfolio))
 		r.Post("/firms", Adapt(handler.AddFirm))
 		r.Get("/tradepoints", Adapt(handler.GetTradePoints))
+		r.Get("/tradepoints/{id}", Adapt(handler.GetTradePoint))
+
 		r.Get("/boards", Adapt(handler.GetBoards))
 		r.Get("/boards/{id}", Adapt(handler.GetBoard))
 	})

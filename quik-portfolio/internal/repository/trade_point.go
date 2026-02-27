@@ -2,6 +2,8 @@ package repository
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 
 	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/apperrors"
 	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/models"
@@ -15,6 +17,11 @@ const (
 			code,
 			name
 		FROM quik.trade_points`
+
+	getTradePointByID = `
+		SELECT point_id, code, name
+		FROM quik.trade_points
+		WHERE point_id = @p1`
 )
 
 func (r *Repository) GetTradePoints(ctx context.Context) ([]models.TradePoint, error) {
@@ -56,4 +63,20 @@ func (r *Repository) GetTradePoints(ctx context.Context) ([]models.TradePoint, e
 
 	}
 	return result, nil
+}
+
+func (r *Repository) GetTradePointByID(ctx context.Context, id uint8) (models.TradePoint, error) {
+	var row models.TradePoint
+	err := r.db.QueryRowContext(ctx, getTradePointByID, id).Scan(&row.Id, &row.Code, &row.Name)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return models.TradePoint{}, apperrors.ErrNotFound
+		}
+		if IsExceeded(err) {
+			return models.TradePoint{}, err
+		}
+		r.logger.Error("ошибка получения торговой площадки", zap.Uint8("id", id), zap.Error(err))
+		return models.TradePoint{}, apperrors.ErrRetrievingData
+	}
+	return row, nil
 }

@@ -35,8 +35,11 @@ type QuikRefsRepository interface {
 	TagBoardsTradePointId(ctx context.Context) error
 
 	GetTradePoints(ctx context.Context) ([]models.TradePoint, error)
+	GetTradePointByID(ctx context.Context, id uint8) (models.TradePoint, error)
 	GetBoards(ctx context.Context) ([]models.Board, error)
 	GetBoardByID(ctx context.Context, id uint8) (models.Board, error)
+	GetBoardByIDWithTradePoint(ctx context.Context, id uint8) (models.Board, error)
+	GetBoardsWithTradePoint(ctx context.Context) ([]models.Board, error)
 }
 
 type LimitsRepository interface {

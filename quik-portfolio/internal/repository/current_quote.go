@@ -13,25 +13,8 @@ import (
 
 const (
 	selectNewCurrentQuote = `
-	SELECT TOP (1) 
-	  instrument_class
-	  ,ticker
-      ,registration_number
-      ,full_name
-      ,short_name
-      ,class_code
-      ,class_name
-      ,instrument_type
-      ,instrument_subtype
-      ,isin
-      ,face_value
-      ,base_currency
-      ,quote_currency
-      ,counter_currency
-      ,maturity_date
-      ,coupon_duration
-  	FROM quik.current_quotes
-  	where instrument_id is null
+
+	
 	`
 	setInstrCurrentQuote = `
 	update quik.current_quotes

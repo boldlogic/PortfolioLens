@@ -7,9 +7,9 @@ import (
 )
 
 func (s *Service) GetBoards(ctx context.Context) ([]models.Board, error) {
-	return s.quikRefsRepo.GetBoards(ctx)
+	return s.quikRefsRepo.GetBoardsWithTradePoint(ctx)
 }
 
 func (s *Service) GetBoardByID(ctx context.Context, id uint8) (models.Board, error) {
-	return s.quikRefsRepo.GetBoardByID(ctx, id)
+	return s.quikRefsRepo.GetBoardByIDWithTradePoint(ctx, id)
 }

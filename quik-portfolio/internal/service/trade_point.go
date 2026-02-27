@@ -15,3 +15,7 @@ func (s *Service) GetTradePoints(ctx context.Context) ([]models.TradePoint, erro
 
 	return res, nil
 }
+
+func (s *Service) GetTradePointByID(ctx context.Context, id uint8) (models.TradePoint, error) {
+	return s.quikRefsRepo.GetTradePointByID(ctx, id)
+}

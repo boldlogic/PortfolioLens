@@ -34,13 +34,18 @@ func (h *Handler) GetBoard(r *http.Request) (any, string, error) {
 }
 
 func boardToDTO(b models.Board) BoardDTO {
-	return BoardDTO{
-		Id:           b.Id,
-		Code:         b.Code,
-		Name:         b.Name,
-		IsTraded:     b.IsTraded,
-		TradePointId: b.TradePointId,
+	out := BoardDTO{
+		Id:       b.Id,
+		Code:     b.Code,
+		Name:     b.Name,
+		IsTraded: b.IsTraded,
 	}
+	if b.TradePoint != nil {
+		tr := tradePointToDTO(*b.TradePoint)
+		out.TradePoint = &tr
+	}
+
+	return out
 }
 
 func boardsToDTO(boards []models.Board) []BoardDTO {
@@ -52,9 +57,9 @@ func boardsToDTO(boards []models.Board) []BoardDTO {
 }
 
 type BoardDTO struct {
-	Id           uint8  `json:"id"`
-	Code         string `json:"code"`
-	Name         string `json:"name"`
-	IsTraded     bool   `json:"isTraded"`
-	TradePointId *uint8 `json:"tradePointId,omitempty"`
+	Id         uint8          `json:"id"`
+	Code       string         `json:"code"`
+	Name       string         `json:"name"`
+	IsTraded   bool           `json:"isTraded"`
+	TradePoint *TradePointDTO `json:"tradePoint,omitempty"`
 }

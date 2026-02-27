@@ -16,10 +16,40 @@ const (
 		FROM quik.boards
 		ORDER BY code`
 
+	getBoardsWithTradePoint = `
+		SELECT
+			b.board_id,
+			b.code,
+			b.name,
+			b.trade_point_id,
+			b.is_traded,
+			p.code,
+			p.name
+		FROM
+			quik.boards b
+			left join quik.trade_points p on p.point_id=b.trade_point_id
+		ORDER BY
+			b.board_id`
+
 	getBoardByID = `
 		SELECT board_id, code, name, trade_point_id, is_traded
 		FROM quik.boards
 		WHERE board_id = @p1`
+
+	getBoardByIDWithTradePoint = `
+		SELECT
+			b.board_id,
+			b.code,
+			b.name,
+			b.trade_point_id,
+			b.is_traded,
+			p.code,
+			p.name
+		FROM
+			quik.boards b
+			LEFT JOIN quik.trade_points p ON p.point_id = b.trade_point_id
+		WHERE
+			b.board_id = @p1`
 
 	insBoard = `
 		INSERT INTO quik.boards
@@ -53,6 +83,7 @@ const (
 			WHEN b.name LIKE 'SPB OTC:%' THEN 'SPB_OTC'
 			WHEN b.name LIKE 'SPB:%' THEN 'SPB'
 			WHEN b.name LIKE 'FORTS:%' OR b.name LIKE N'%: FORTS' THEN 'FORTS'
+			WHEN b.name LIKE N'МБ Деривативы:%' THEN 'FORTS'
 			WHEN b.name LIKE N'МБ%' AND (b.name LIKE N'%OTC%' OR b.name LIKE N'%ОТС%' OR b.name LIKE N'%OТС%') THEN 'MOEX_OTC'
 			WHEN b.name LIKE N'МБ%' THEN 'MOEX'
 			WHEN b.name LIKE N'БКС%' THEN 'BCS_OTC'
@@ -132,6 +163,44 @@ func (r *Repository) GetBoards(ctx context.Context) ([]models.Board, error) {
 	return result, nil
 }
 
+func (r *Repository) GetBoardsWithTradePoint(ctx context.Context) ([]models.Board, error) {
+	rows, err := r.db.QueryContext(ctx, getBoardsWithTradePoint)
+	if err != nil {
+		if IsExceeded(err) {
+			return nil, err
+		}
+		r.logger.Error("ошибка получения бордов", zap.Error(err))
+		return nil, apperrors.ErrRetrievingData
+	}
+	defer rows.Close()
+
+	r.logger.Debug("получение борда")
+	var result []models.Board
+	for rows.Next() {
+		var row models.Board
+		var tradePointID sql.NullInt32
+		var tradePointCode sql.NullString
+		var tradePointName sql.NullString
+
+		err = rows.Scan(&row.Id, &row.Code, &row.Name, &tradePointID, &row.IsTraded, &tradePointCode, &tradePointName)
+
+		if err != nil {
+			if IsExceeded(err) {
+				return nil, err
+			}
+			r.logger.Error("ошибка сканирования борда", zap.Error(err))
+			return nil, apperrors.ErrRetrievingData
+		}
+		r.logger.Debug("получение борда", zap.Any("tradePointID", tradePointID), zap.Any("tradePointCode", tradePointCode), zap.Any("tradePointName", tradePointName))
+		setBoardTradePoint(&row, tradePointID, tradePointCode, tradePointName)
+		result = append(result, row)
+	}
+	if rows.Err() != nil {
+		return nil, apperrors.ErrRetrievingData
+	}
+	return result, nil
+}
+
 func (r *Repository) GetBoardByID(ctx context.Context, id uint8) (models.Board, error) {
 	var row models.Board
 	var tradePointID sql.NullInt32
@@ -150,9 +219,59 @@ func (r *Repository) GetBoardByID(ctx context.Context, id uint8) (models.Board, 
 	return row, nil
 }
 
+func (r *Repository) GetBoardByIDWithTradePoint(ctx context.Context, id uint8) (models.Board, error) {
+	var row models.Board
+	var tradePointID sql.NullInt32
+	var tradePointCode sql.NullString
+	var tradePointName sql.NullString
+	err := r.db.QueryRowContext(ctx, getBoardByIDWithTradePoint, id).Scan(
+		&row.Id, &row.Code, &row.Name, &tradePointID, &row.IsTraded,
+		&tradePointCode, &tradePointName,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return models.Board{}, apperrors.ErrNotFound
+		}
+		if IsExceeded(err) {
+			return models.Board{}, err
+		}
+		r.logger.Error("ошибка получения борда", zap.Uint8("id", id), zap.Error(err))
+		return models.Board{}, apperrors.ErrRetrievingData
+	}
+	setBoardTradePoint(&row, tradePointID, tradePointCode, tradePointName)
+	return row, nil
+}
+
 func setBoardTradePointId(row *models.Board, n sql.NullInt32) {
 	if n.Valid {
 		id := uint8(n.Int32)
 		row.TradePointId = &id
 	}
+}
+
+func setBoardTradePoint(row *models.Board, i sql.NullInt32, c sql.NullString, n sql.NullString) {
+
+	if !i.Valid {
+		return
+	}
+
+	id := uint8(i.Int32)
+	row.TradePointId = &id
+
+	row.TradePoint = &models.TradePoint{}
+
+	row.TradePoint.Id = id
+
+	//var code string
+	if c.Valid {
+		//code = c.String
+		row.TradePoint.Code = c.String
+	}
+	//var name string
+	if n.Valid {
+		//name = n.String
+		row.TradePoint.Name = n.String
+	}
+	//row.TradePoint = &tr
+
 }
