@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/apperrors"
@@ -18,7 +17,7 @@ type Service struct {
 }
 
 type InstrumentRepository interface {
-	SelectNewCurrentQuote(ctx context.Context) (models.CurrentQuote, error)
+	SelectInstrumentFromNewCurrentQuote(ctx context.Context) (models.Instrument, string, error)
 	InsInstrument(ctx context.Context, i models.Instrument) (int, error)
 	SetInstrument(ctx context.Context, id int, ic string) error
 	GetInstrumentId(ctx context.Context, ticker string) (int, error)
@@ -69,78 +68,32 @@ func NewService(ctx context.Context, intrRepo InstrumentRepository, quikRefsRepo
 }
 
 func (s *Service) SaveInstrument(ctx context.Context) error {
-	quote, err := s.instrRepo.SelectNewCurrentQuote(ctx)
+	instr, instrumentClass, err := s.instrRepo.SelectInstrumentFromNewCurrentQuote(ctx)
 	if err != nil {
 		return err
 	}
-	quote.Clear()
 
-	id, err := s.instrRepo.GetInstrumentId(ctx, quote.Ticker)
+	id, err := s.instrRepo.GetInstrumentId(ctx, instr.Ticker)
 	s.logger.Debug("успешно получен инстуремент для котировки", zap.Int("id", id))
-	if err != nil && err != models.ErrInstrumentNotFound {
-		s.logger.Error("ошибка получения inst", zap.String("Ticker", quote.Ticker), zap.Error(err))
+
+	if err != nil && err != apperrors.ErrNotFound {
+		s.logger.Error("ошибка получения inst", zap.String("Ticker", instr.Ticker), zap.Error(err))
 		return err
 	} else if id > 0 {
-		err = s.instrRepo.SetInstrument(ctx, id, quote.InstrumentClass)
-		s.logger.Debug("успешно обновлен инстуремент для котировки", zap.String("Ticker", quote.Ticker))
+		err = s.instrRepo.SetInstrument(ctx, id, instrumentClass)
+		s.logger.Debug("успешно обновлен инстуремент для котировки", zap.String("Ticker", instr.Ticker))
 		return nil
-	} else if err == models.ErrInstrumentNotFound || id == 0 {
+	} else if err == apperrors.ErrNotFound || id == 0 {
 
-		intrType, err := s.quikRefsRepo.GetInstrumentTypeId(ctx, quote.InstrumentType)
-		if err != nil && errors.Is(err, apperrors.ErrNotFound) {
-			s.logger.Warn("тип инструмента не найден, создаем", zap.String("тип", quote.InstrumentType), zap.Error(err))
-
-			intrType, err = s.quikRefsRepo.InsInstrumentType(ctx, quote.InstrumentType)
-
-			if err != nil {
-				s.logger.Error("ошибка создания", zap.String("тип", quote.InstrumentType), zap.Error(err))
-
-				return err
-			}
-			s.logger.Debug("создание типа инструмента успешно", zap.String("тип", quote.InstrumentType))
-
-		}
-		var instrSubType models.InstrumentSubType
-		if quote.InstrumentSubtype != nil {
-			instrSubType, err = s.quikRefsRepo.GetInstrumentSubTypeId(ctx, intrType.Id, *quote.InstrumentSubtype)
-			if err != nil && errors.Is(err, models.ErrInstrumentSubTypeNotFound) {
-				s.logger.Warn("подтип инструмента не найден, создаем", zap.String("подтип", *quote.InstrumentSubtype), zap.Error(err))
-				instrSubType, err = s.quikRefsRepo.InsInstrumentSubType(ctx, intrType.Id, *quote.InstrumentSubtype)
-
-				if err != nil {
-					s.logger.Error("ошибка создания", zap.String("подтип", *quote.InstrumentSubtype), zap.Error(err))
-
-					return err
-				}
-				s.logger.Debug("создание подтипа инструмента успешно", zap.String("тип", *quote.InstrumentSubtype), zap.Uint8("id", instrSubType.SubTypeId))
-			}
-		}
-		inst := models.Instrument{
-			Ticker:             quote.Ticker,
-			RegistrationNumber: quote.RegistrationNumber,
-			FullName:           quote.FullName,
-			ShortName:          quote.ShortName,
-			ClassCode:          quote.ClassCode,
-			ClassName:          quote.ClassCode,
-			TypeId:             intrType.Id,
-			SubTypeId:          &instrSubType.SubTypeId,
-			ISIN:               quote.ISIN,
-			FaceValue:          quote.FaceValue,
-			BaseCurrency:       quote.BaseCurrency,
-			QuoteCurrency:      quote.QuoteCurrency,
-			CounterCurrency:    quote.CounterCurrency,
-			MaturityDate:       quote.MaturityDate,
-			CouponDuration:     quote.CouponDuration,
-		}
-		id, err = s.instrRepo.InsInstrument(ctx, inst)
+		id, err = s.instrRepo.InsInstrument(ctx, instr)
 		if err != nil && id != 0 {
-			s.logger.Error("ошибка создания", zap.String("Ticker", *&quote.Ticker), zap.Error(err))
+			s.logger.Error("ошибка создания", zap.String("Ticker", *&instr.Ticker), zap.Error(err))
 
 			return err
 		}
-		err = s.instrRepo.SetInstrument(ctx, id, quote.InstrumentClass)
+		err = s.instrRepo.SetInstrument(ctx, id, instrumentClass)
 		if err != nil {
-			s.logger.Error("ошибка обновления", zap.String("Ticker", *&quote.Ticker), zap.Error(err))
+			s.logger.Error("ошибка обновления", zap.String("Ticker", *&instr.Ticker), zap.Error(err))
 			return err
 		}
 		s.logger.Debug("успешно создан инструмент", zap.Int("id", id))

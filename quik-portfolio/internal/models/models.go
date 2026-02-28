@@ -10,21 +10,22 @@ type CurrentQuote struct {
 	QuoteDate          *time.Time // Дата торгов
 	InstrumentClass    string     // Код инструмента+Борд
 	Ticker             string     // Код инструмента
+	ISIN               *string    // Международный идентификатор
 	RegistrationNumber *string    // Рег.номер инструмента
 	FullName           *string    // Полное название инструмента
 	ShortName          string     // Краткое название
+	FaceValue          *float64   // Номинал
+	MaturityDate       *time.Time // Дата погашения
+	CouponDuration     *int       // Длительность купона
 	ClassCode          string     // Код класса / Борд
 	ClassName          string     // Наименование класса
 	InstrumentType     string     // Тип инструмента
 	InstrumentSubtype  *string    // Подтип инструмента
-	ISIN               *string    // Международный идентификатор
-	FaceValue          *float64   // Номинал
 	Currency           string     // Валюта
 	BaseCurrency       string     // Базовая валюта
 	QuoteCurrency      *string    // Валюта котировки
 	CounterCurrency    *string    // Сопряженная валюта
-	MaturityDate       *time.Time // Дата погашения
-	CouponDuration     *int       // Длительность купона
+	InstrumentId       int
 
 	LastPrice     *float64
 	ClosePrice    *float64
@@ -89,8 +90,8 @@ type InstrumentType struct {
 
 type InstrumentSubType struct {
 	SubTypeId uint8
-	TypeId    uint8
 	Title     string
+	TypeId    uint8
 }
 
 type Firm struct {
@@ -101,27 +102,30 @@ type Firm struct {
 
 type Instrument struct {
 	Id                 int
-	Ticker             string  `gorm:"column:ticker;type:char(15);not null"`      // Код инструмента
-	RegistrationNumber *string `gorm:"column:registration_number;type:char(250)"` // Рег.номер инструмента
-	FullName           *string `gorm:"column:full_name;type:char(250);not null"`  // Полное название инструмента
-	ShortName          string  `gorm:"column:short_name;type:char(100)"`          // Краткое название
-	ClassCode          string  `gorm:"column:class_code;type:char(20)"`           // Код класса
-	ClassName          string  `gorm:"column:class_name;type:char(200)"`          // Наименование класса
-	TypeId             uint8
-	Type               InstrumentType // Тип инструмента
-	SubTypeId          *uint8
-	SubType            InstrumentSubType // Подтип инструмента
-	//InstrumentType     string     `gorm:"column:instrument_type;type:char(100)"`
-	//InstrumentSubtype  string     `gorm:"column:instrument_subtype;type:char(100)"`
-	//AssetClass      string
-	//AssetSubClass   string
-	ISIN            *string    `gorm:"column:isin;type:char(15)"`            // Международный идентификатор
-	FaceValue       *float64   `gorm:"column:face_value;type:float"`         // Номинал
-	BaseCurrency    string     `gorm:"column:base_currency;type:char(3)"`    // Валюта номинала / базовая валюта
-	QuoteCurrency   *string    `gorm:"column:quote_currency;type:char(3)"`   // Валюта котировки
-	CounterCurrency *string    `gorm:"column:counter_currency;type:char(3)"` // Сопряженная валюта
-	MaturityDate    *time.Time `gorm:"column:maturity_date;type:date"`       // Дата погашения
-	CouponDuration  *int       `gorm:"column:coupon_duration;type:int"`      // Длительность купона
+	Ticker             string     // Код инструмента
+	ISIN               *string    // Международный идентификатор
+	RegistrationNumber *string    // Рег.номер инструмента
+	FullName           *string    // Полное название инструмента
+	ShortName          string     // Краткое название
+	MaturityDate       *time.Time // Дата погашения
+	CouponDuration     *int       // Длительность купона
+	FaceValue          *float64   // Номинал
+
+	// ClassCode string // Код класса
+	// ClassName string // Наименование класса
+	// TypeId    uint8
+	// Type      InstrumentType // Тип инструмента
+	// SubTypeId *uint8
+	// SubType   InstrumentSubType // Подтип инструмента
+	// //InstrumentType     string     `gorm:"column:instrument_type;type:char(100)"`
+	// //InstrumentSubtype  string     `gorm:"column:instrument_subtype;type:char(100)"`
+	// //AssetClass      string
+	// //AssetSubClass   string
+
+	// BaseCurrency    string  // Валюта номинала / базовая валюта
+	// QuoteCurrency   *string // Валюта котировки
+	// CounterCurrency *string // Сопряженная валюта
+
 }
 
 type MoneyLimit struct {

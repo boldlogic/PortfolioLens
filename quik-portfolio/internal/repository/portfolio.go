@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 
+	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/apperrors"
 	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/models"
 	"go.uber.org/zap"
 )
@@ -85,10 +86,10 @@ func (r *Repository) GetPortfolio(ctx context.Context) ([]models.PortfolioItem, 
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			r.logger.Debug("портфель не найден")
-			return nil, models.ErrPortfolioNotFound
+			return nil, apperrors.ErrNotFound
 		}
 		r.logger.Error("ошибка запроса портфеля", zap.Error(err))
-		return nil, models.ErrPortfolioRetrieving
+		return nil, apperrors.ErrRetrievingData
 	}
 	defer rows.Close()
 
@@ -111,7 +112,7 @@ func (r *Repository) GetPortfolio(ctx context.Context) ([]models.PortfolioItem, 
 		)
 		if err != nil {
 			r.logger.Error("ошибка при сканировании строки портфеля", zap.Error(err))
-			return nil, models.ErrPortfolioRetrieving
+			return nil, apperrors.ErrRetrievingData
 		}
 		if mvCurrency.Valid {
 			row.MvCurrency = &mvCurrency.String
@@ -122,11 +123,11 @@ func (r *Repository) GetPortfolio(ctx context.Context) ([]models.PortfolioItem, 
 		result = append(result, row)
 	}
 	if rows.Err() != nil {
-		return nil, models.ErrPortfolioRetrieving
+		return nil, apperrors.ErrRetrievingData
 	}
 	if len(result) == 0 {
 		r.logger.Debug("позиции портфеля не найдены")
-		return nil, models.ErrPortfolioNotFound
+		return nil, apperrors.ErrRetrievingData
 
 	}
 	return result, nil

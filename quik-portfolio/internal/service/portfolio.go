@@ -12,7 +12,7 @@ import (
 func (s *Service) GetLimits(ctx context.Context, date time.Time) ([]models.Limit, error) {
 	var res []models.Limit
 	ml, err := s.limitsRepo.GetMoneyLimits(ctx, date)
-	if err != nil && !errors.Is(err, apperrors.ErrMLNotFound) {
+	if err != nil && !errors.Is(err, apperrors.ErrNotFound) {
 		return nil, err
 	}
 
@@ -28,7 +28,7 @@ func (s *Service) GetLimits(ctx context.Context, date time.Time) ([]models.Limit
 	}
 
 	sl, err := s.limitsRepo.GetSecurityLimits(ctx, date)
-	if err != nil && !errors.Is(err, apperrors.ErrSLNotFound) {
+	if err != nil && !errors.Is(err, apperrors.ErrNotFound) {
 		return nil, err
 	}
 
@@ -45,7 +45,7 @@ func (s *Service) GetLimits(ctx context.Context, date time.Time) ([]models.Limit
 		})
 	}
 	if len(res) == 0 {
-		return nil, models.ErrLimitsNotFound
+		return nil, apperrors.ErrNotFound
 	}
 
 	return res, nil

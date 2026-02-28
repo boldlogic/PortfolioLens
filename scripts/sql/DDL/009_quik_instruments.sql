@@ -19,10 +19,10 @@ BEGIN
         isin                NVARCHAR(12)    NULL,                    -- ISIN (char 15)
         face_value          FLOAT       NULL,                    -- Номинал (float)
 
-        currency         tinyint   NULL,
-        base_currency         tinyint   NULL,
-        quote_currency        tinyint    NULL,
-        counter_currency      tinyint    NULL,
+        -- currency         tinyint   NULL,
+        -- base_currency         tinyint   NULL,
+        -- quote_currency        tinyint    NULL,
+        -- counter_currency      tinyint    NULL,
 
         maturity_date       DATE        NULL,                    -- Погашение (date)
         coupon_duration     INT         NULL,                    -- Длит. купона (int)
@@ -30,9 +30,9 @@ BEGIN
         rw          ROWVERSION      NOT NULL,
         
         CONSTRAINT PK_quik_instruments PRIMARY KEY CLUSTERED (instrument_id),
-        CONSTRAINT FK_quik_instruments_base_currency FOREIGN KEY (base_currency) REFERENCES dbo.currencies (iso_code),
-        CONSTRAINT FK_quik_instruments_quote_currency FOREIGN KEY (quote_currency) REFERENCES dbo.currencies (iso_code),
-        CONSTRAINT FK_quik_instruments_counter_currency FOREIGN KEY (counter_currency) REFERENCES dbo.currencies (iso_code),
+        -- CONSTRAINT FK_quik_instruments_base_currency FOREIGN KEY (base_currency) REFERENCES dbo.currencies (iso_code),
+        -- CONSTRAINT FK_quik_instruments_quote_currency FOREIGN KEY (quote_currency) REFERENCES dbo.currencies (iso_code),
+        -- CONSTRAINT FK_quik_instruments_counter_currency FOREIGN KEY (counter_currency) REFERENCES dbo.currencies (iso_code),
 
     );
 

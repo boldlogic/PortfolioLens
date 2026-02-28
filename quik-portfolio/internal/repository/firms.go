@@ -59,10 +59,10 @@ func (r *Repository) InsertFirm(ctx context.Context, code string, name string) (
 		var mssqlErr mssql.Error
 		if errors.As(err, &mssqlErr) && (mssqlErr.Number == 2627 || mssqlErr.Number == 2601) {
 			r.logger.Warn("фирма с таким кодом уже существует", zap.String("code", code))
-			return models.Firm{}, apperrors.ErrFirmDuplicate
+			return models.Firm{}, apperrors.ErrConflict
 		}
 		r.logger.Error("ошибка сохранения фирмы брокера", zap.String("code", code), zap.String("name", name), zap.Error(err))
-		return models.Firm{}, apperrors.ErrFirmCreating
+		return models.Firm{}, apperrors.ErrSavingData
 	}
 	r.logger.Debug("фирма успешно сохранена", zap.Uint8("id", res.Id), zap.String("code", res.Code), zap.String("name", res.Name))
 

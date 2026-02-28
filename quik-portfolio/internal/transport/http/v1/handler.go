@@ -52,7 +52,7 @@ func Adapt(h HandlerFunc) http.HandlerFunc {
 				resp = httputils.BadRequest(detail)
 			case errors.Is(err, apperrors.ErrBusinessValidation):
 				resp = httputils.UnprocessableEntity(detail)
-			case errors.Is(apperrors.ErrNotFound, err) || errors.Is(models.ErrLimitsNotFound, err) || errors.Is(models.ErrPortfolioNotFound, err):
+			case errors.Is(apperrors.ErrNotFound, err):
 				resp = httputils.NotFound(detail)
 
 			case errors.Is(apperrors.ErrConflict, err):

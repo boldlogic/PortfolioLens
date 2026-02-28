@@ -59,9 +59,6 @@ func (a *Application) Start(ctx context.Context) error {
 	// 	return fmt.Errorf("%w", err)
 	// }
 	a.svc = service.NewService(ctx, a.repo, a.repo, a.repo, a.Logger)
-	// for i := 0; i <= 60000; i++ {
-	// 	svc.SaveInstrument(ctx)
-	// }
 
 	a.Logger.Debug("ok")
 	//fmt.Println(i)
@@ -75,6 +72,9 @@ func (a *Application) Start(ctx context.Context) error {
 	err = a.InitDictionaries(ctx)
 	if err != nil {
 		return err
+	}
+	for i := 0; i <= 60000; i++ {
+		a.svc.SaveInstrument(ctx)
 	}
 
 	handler := httpserver.NewHandler(a.svc, a.Logger)
