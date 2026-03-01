@@ -3,7 +3,6 @@ package repository
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 
 	_ "github.com/microsoft/go-mssqldb" // MS SQL Server driver
@@ -42,12 +41,4 @@ func initializeDatabase(ctx context.Context, dsn string) (*sql.DB, error) {
 
 func (r *Repository) Close() {
 	r.db.Close()
-}
-
-func IsExceeded(err error) bool {
-	if errors.Is(err, context.Canceled) ||
-		errors.Is(err, context.DeadlineExceeded) {
-		return true
-	}
-	return false
 }

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 
+	"github.com/boldlogic/PortfolioLens/pkg/shutdown"
 	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/apperrors"
 	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/models"
 	mssql "github.com/microsoft/go-mssqldb"
@@ -39,6 +40,10 @@ func (r *Repository) GetFirmByName(ctx context.Context, name string) (models.Fir
 	row := r.db.QueryRowContext(ctx, selectFirmByName, name)
 	err := row.Scan(&res.Id, &res.Code, &res.Name)
 	if err != nil {
+		if shutdown.IsExceeded(err) {
+			return models.Firm{}, err
+		}
+
 		if errors.Is(err, sql.ErrNoRows) {
 			r.logger.Debug("фирма не найдена", zap.String("name", name))
 			return models.Firm{}, apperrors.ErrNotFound
@@ -56,6 +61,10 @@ func (r *Repository) InsertFirm(ctx context.Context, code string, name string) (
 	err := row.Scan(&res.Id, &res.Code, &res.Name)
 
 	if err != nil {
+		if shutdown.IsExceeded(err) {
+			return models.Firm{}, err
+		}
+
 		var mssqlErr mssql.Error
 		if errors.As(err, &mssqlErr) && (mssqlErr.Number == 2627 || mssqlErr.Number == 2601) {
 			r.logger.Warn("фирма с таким кодом уже существует", zap.String("code", code))

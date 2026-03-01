@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 
+	"github.com/boldlogic/PortfolioLens/pkg/shutdown"
 	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/apperrors"
 	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/models"
 	"go.uber.org/zap"
@@ -49,6 +50,9 @@ func (r *Repository) GetInstrumentId(ctx context.Context, ticker string, tradePo
 	row := r.db.QueryRowContext(ctx, selInstrumentId, ticker, tradePointId)
 	err := row.Scan(&instrumentId)
 	if err != nil {
+		if shutdown.IsExceeded(err) {
+			return 0, err
+		}
 		if errors.Is(err, sql.ErrNoRows) {
 			r.logger.Debug("инструмент не найден", zap.String("ticker", ticker), zap.Uint8("trade_point_id", tradePointId))
 			return 0, apperrors.ErrNotFound
@@ -68,6 +72,9 @@ func (r *Repository) InsInstrument(ctx context.Context, i models.Instrument) (in
 
 	err := row.Scan(&instrumentId)
 	if err != nil {
+		if shutdown.IsExceeded(err) {
+			return 0, err
+		}
 		r.logger.Error("ошибка сохранения инструмента", zap.String("ticker", i.Ticker), zap.Uint8("trade_point_id", i.TradePointId), zap.Error(err))
 		return 0, apperrors.ErrSavingData
 	}

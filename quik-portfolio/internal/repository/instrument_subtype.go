@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 
+	"github.com/boldlogic/PortfolioLens/pkg/shutdown"
 	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/apperrors"
 	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/models"
 	"go.uber.org/zap"
@@ -42,7 +43,7 @@ func (r *Repository) SyncInstrumentSubTypesFromQuotes(ctx context.Context) error
 	_, err := r.db.ExecContext(ctx, mergeInstrumentSubTypesFromQuotes)
 
 	if err != nil {
-		if IsExceeded(err) {
+		if shutdown.IsExceeded(err) {
 			return err
 		}
 		r.logger.Error("ошибка сохранения подтипов инструментов", zap.Error(err))
@@ -61,6 +62,9 @@ func (r *Repository) GetInstrumentSubTypeId(ctx context.Context, typeId uint8, t
 	err := row.Scan(&res.SubTypeId, &res.TypeId, &res.Title)
 
 	if err != nil {
+		if shutdown.IsExceeded(err) {
+			return models.InstrumentSubType{}, err
+		}
 		if errors.Is(err, sql.ErrNoRows) {
 			r.logger.Error("подтип инструмента не найден", zap.String("title", title))
 			return models.InstrumentSubType{}, apperrors.ErrNotFound
@@ -80,6 +84,9 @@ func (r *Repository) InsInstrumentSubType(ctx context.Context, typeId uint8, tit
 	err := row.Scan(&res.SubTypeId, &res.TypeId, &res.Title)
 
 	if err != nil {
+		if shutdown.IsExceeded(err) {
+			return models.InstrumentSubType{}, err
+		}
 		r.logger.Error("ошибка сохранения подтипа инструмента", zap.String("title", title), zap.Error(err))
 		return models.InstrumentSubType{}, apperrors.ErrSavingData
 	}

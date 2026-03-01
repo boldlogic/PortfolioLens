@@ -6,6 +6,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/boldlogic/PortfolioLens/pkg/shutdown"
 	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/apperrors"
 	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/models"
 	"go.uber.org/zap"
@@ -55,7 +56,7 @@ func (r *Repository) GetMoneyLimits(ctx context.Context, date time.Time) ([]mode
 		r.logger.Warn("текущие позиции по деньгам не найдены")
 		return nil, apperrors.ErrNotFound
 	} else if err != nil {
-		if IsExceeded(err) {
+		if shutdown.IsExceeded(err) {
 			return nil, err
 		}
 
@@ -69,7 +70,7 @@ func (r *Repository) GetMoneyLimits(ctx context.Context, date time.Time) ([]mode
 		row := models.MoneyLimit{}
 		err = rows.Scan(&row.LoadDate, &row.ClientCode, &row.Currency, &row.PositionCode, &row.FirmCode, &row.FirmName, &row.Balance)
 		if err != nil {
-			if IsExceeded(err) {
+			if shutdown.IsExceeded(err) {
 				return nil, err
 			}
 			r.logger.Error("ошибка при получении текущих позиций по деньгам", zap.Error(err))

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/boldlogic/PortfolioLens/pkg/shutdown"
 	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/apperrors"
 	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/models"
 	mssql "github.com/microsoft/go-mssqldb"
@@ -73,7 +74,7 @@ func (r *Repository) SaveSecurityLimit(ctx context.Context, s models.SecurityLim
 		s.LoadDate, s.ClientCode, s.Ticker, s.TradeAccount, s.SettleCode,
 		s.FirmCode, s.FirmName, s.Balance, s.AcquisitionCcy, s.ISIN)
 	if err != nil {
-		if IsExceeded(err) {
+		if shutdown.IsExceeded(err) {
 			return err
 		}
 
@@ -101,7 +102,7 @@ func (r *Repository) GetSecurityLimits(ctx context.Context, date time.Time) ([]m
 	r.logger.Debug("", zap.Error(err))
 
 	if err != nil {
-		if IsExceeded(err) {
+		if shutdown.IsExceeded(err) {
 			return nil, err
 		}
 		if errors.Is(err, sql.ErrNoRows) {
@@ -127,7 +128,7 @@ func (r *Repository) GetSecurityLimits(ctx context.Context, date time.Time) ([]m
 			&row.ISIN,
 		)
 		if err != nil {
-			if IsExceeded(err) {
+			if shutdown.IsExceeded(err) {
 				return nil, err
 			}
 			r.logger.Error("ошибка при сканировании позиции по бумагам", zap.Error(err))

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/boldlogic/PortfolioLens/pkg/shutdown"
 	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/apperrors"
 	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/models"
 	"go.uber.org/zap"
@@ -69,9 +70,10 @@ func (r *Repository) SetInstrument(ctx context.Context, id int, ic string) error
 	r.logger.Debug("привязка инструмента к котировке", zap.Int("id", id), zap.String("instrument_class", ic))
 	result, err := r.db.ExecContext(ctx, setInstrCurrentQuote, id, ic)
 	if err != nil {
-		if IsExceeded(err) {
+		if shutdown.IsExceeded(err) {
 			return err
 		}
+
 		r.logger.Error("ошибка сохранения инструмента", zap.String("instrument_class", ic), zap.Error(err))
 		return apperrors.ErrSavingData
 	}
@@ -110,7 +112,7 @@ func (r *Repository) SelectInstrumentFromNewCurrentQuote(ctx context.Context) (m
 		&qib.CounterCurrencyId)
 
 	if err != nil {
-		if IsExceeded(err) {
+		if shutdown.IsExceeded(err) {
 			return models.Instrument{}, models.InstrumentBoard{}, "", err
 		}
 		if errors.Is(err, sql.ErrNoRows) {

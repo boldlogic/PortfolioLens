@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 
+	"github.com/boldlogic/PortfolioLens/pkg/shutdown"
 	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/apperrors"
 	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/models"
 	"go.uber.org/zap"
@@ -41,14 +42,14 @@ const (
 		WITH
 		src AS (
 			SELECT
-			instrument_id = @p1,
-			board_id = @p2,
-			type_id = @p3,
-			subtype_id = @p4,
-			currency_id = @p5,
-			base_currency_id = @p6,
-			quote_currency_id = @p7,
-			counter_currency_id = @p8
+			instrument_id = CAST(@p1 AS BIGINT),
+			board_id = CAST(@p2 AS TINYINT),
+			type_id = CAST(@p3 AS TINYINT),
+			subtype_id = CAST(@p4 AS TINYINT),
+			currency_id = CAST(@p5 AS BIGINT),
+			base_currency_id = CAST(@p6 AS BIGINT),
+			quote_currency_id = CAST(@p7 AS BIGINT),
+			counter_currency_id = CAST(@p8 AS BIGINT)
 		) MERGE INTO quik.instrument_boards AS tgt USING src ON tgt.instrument_id = src.instrument_id
 		AND tgt.board_id = src.board_id
 		WHEN MATCHED AND (
@@ -77,7 +78,7 @@ const (
 			counter_currency_id
 		)
 		VALUES
-		(@p1 ,@p2,@p3,@p4,@p5,@p6,@p7,@p8);
+		(CAST(@p1 AS BIGINT), CAST(@p2 AS TINYINT), CAST(@p3 AS TINYINT), CAST(@p4 AS TINYINT), CAST(@p5 AS BIGINT), CAST(@p6 AS BIGINT), CAST(@p7 AS BIGINT), CAST(@p8 AS BIGINT));
 	`
 )
 
@@ -96,9 +97,10 @@ func (r *Repository) MergeInstrumentBoard(ctx context.Context, ib models.Instrum
 		ib.QuoteCurrencyId,
 		ib.CounterCurrencyId)
 	if err != nil {
-		if IsExceeded(err) {
+		if shutdown.IsExceeded(err) {
 			return err
 		}
+
 		r.logger.Error("ошибка сохранения кода класса для инструмента", zap.Int("instrument_id", ib.InstrumentId), zap.Uint8("board_id", ib.BoardId), zap.Error(err))
 		return apperrors.ErrSavingData
 	}

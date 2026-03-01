@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 
+	"github.com/boldlogic/PortfolioLens/pkg/shutdown"
 	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/apperrors"
 	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/models"
 	"go.uber.org/zap"
@@ -84,6 +85,9 @@ func (r *Repository) GetPortfolio(ctx context.Context) ([]models.PortfolioItem, 
 
 	rows, err := r.db.QueryContext(ctx, getPortfolio)
 	if err != nil {
+		if shutdown.IsExceeded(err) {
+			return nil, err
+		}
 		if errors.Is(err, sql.ErrNoRows) {
 			r.logger.Debug("портфель не найден")
 			return nil, apperrors.ErrNotFound
@@ -111,6 +115,9 @@ func (r *Repository) GetPortfolio(ctx context.Context) ([]models.PortfolioItem, 
 			&shortName,
 		)
 		if err != nil {
+			if shutdown.IsExceeded(err) {
+				return nil, err
+			}
 			r.logger.Error("ошибка при сканировании строки портфеля", zap.Error(err))
 			return nil, apperrors.ErrRetrievingData
 		}

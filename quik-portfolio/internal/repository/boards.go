@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 
+	"github.com/boldlogic/PortfolioLens/pkg/shutdown"
 	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/apperrors"
 	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/models"
 	"go.uber.org/zap"
@@ -93,51 +94,59 @@ const (
 
 func (r *Repository) InsBoard(ctx context.Context, code string, name string) (models.Board, error) {
 	res := models.Board{}
-	r.logger.Debug("сохранение кода класса", zap.String("code", code))
 	row := r.db.QueryRowContext(ctx, insBoard, code, name)
 	err := row.Scan(&res.Id, &res.Code, &res.Name)
-
 	if err != nil {
+		if shutdown.IsExceeded(err) {
+			return models.Board{}, err
+		}
+
 		r.logger.Error("ошибка сохранения кода класса", zap.String("code", code), zap.Error(err))
 		return models.Board{}, apperrors.ErrSavingData
 	}
 
+	r.logger.Debug("кода класса успешно сохранен", zap.String("code", code), zap.Uint8("board_id", res.Id))
 	return res, nil
 }
 
 func (r *Repository) SyncBoardsFromQuotes(ctx context.Context) error {
-	r.logger.Debug("сохранение кода класса")
 	_, err := r.db.ExecContext(ctx, mergeBoardsFromQuotes)
 	if err != nil {
-		if IsExceeded(err) {
+		if shutdown.IsExceeded(err) {
 			return err
 		}
-		r.logger.Error("ошибка сохранения кода класса", zap.Error(err))
+
+		r.logger.Error("ошибка сохранения кодов классов из котировок", zap.Error(err))
 		return apperrors.ErrSavingData
 	}
+
+	r.logger.Debug("коды классов успешно сохранены из котировок")
 	return nil
 }
 
 func (r *Repository) TagBoardsTradePointId(ctx context.Context) error {
-	r.logger.Debug("разметка бордов по торговым площадкам")
 	_, err := r.db.ExecContext(ctx, tagBoardsTradePointId)
 	if err != nil {
-		if IsExceeded(err) {
+		if shutdown.IsExceeded(err) {
 			return err
 		}
-		r.logger.Error("ошибка разметки бордов", zap.Error(err))
+
+		r.logger.Error("ошибка разметки кодов классов", zap.Error(err))
 		return apperrors.ErrSavingData
 	}
+
+	r.logger.Debug("разметка кодов классов по торговым площадкам завершена успешно")
 	return nil
 }
 
 func (r *Repository) GetBoards(ctx context.Context) ([]models.Board, error) {
 	rows, err := r.db.QueryContext(ctx, getBoards)
 	if err != nil {
-		if IsExceeded(err) {
+		if shutdown.IsExceeded(err) {
 			return nil, err
 		}
-		r.logger.Error("ошибка получения бордов", zap.Error(err))
+
+		r.logger.Error("ошибка получения кодов классов", zap.Error(err))
 		return nil, apperrors.ErrRetrievingData
 	}
 	defer rows.Close()
@@ -148,12 +157,14 @@ func (r *Repository) GetBoards(ctx context.Context) ([]models.Board, error) {
 		var tradePointID sql.NullInt32
 		err = rows.Scan(&row.Id, &row.Code, &row.Name, &tradePointID, &row.IsTraded)
 		if err != nil {
-			if IsExceeded(err) {
+			if shutdown.IsExceeded(err) {
 				return nil, err
 			}
-			r.logger.Error("ошибка сканирования борда", zap.Error(err))
+
+			r.logger.Error("ошибка чтения кода класса", zap.Error(err))
 			return nil, apperrors.ErrRetrievingData
 		}
+
 		setBoardTradePointId(&row, tradePointID)
 		result = append(result, row)
 	}
@@ -166,7 +177,7 @@ func (r *Repository) GetBoards(ctx context.Context) ([]models.Board, error) {
 func (r *Repository) GetBoardsWithTradePoint(ctx context.Context) ([]models.Board, error) {
 	rows, err := r.db.QueryContext(ctx, getBoardsWithTradePoint)
 	if err != nil {
-		if IsExceeded(err) {
+		if shutdown.IsExceeded(err) {
 			return nil, err
 		}
 		r.logger.Error("ошибка получения бордов", zap.Error(err))
@@ -185,7 +196,7 @@ func (r *Repository) GetBoardsWithTradePoint(ctx context.Context) ([]models.Boar
 		err = rows.Scan(&row.Id, &row.Code, &row.Name, &tradePointID, &row.IsTraded, &tradePointCode, &tradePointName)
 
 		if err != nil {
-			if IsExceeded(err) {
+			if shutdown.IsExceeded(err) {
 				return nil, err
 			}
 			r.logger.Error("ошибка сканирования борда", zap.Error(err))
@@ -209,7 +220,7 @@ func (r *Repository) GetBoardByID(ctx context.Context, id uint8) (models.Board, 
 		if errors.Is(err, sql.ErrNoRows) {
 			return models.Board{}, apperrors.ErrNotFound
 		}
-		if IsExceeded(err) {
+		if shutdown.IsExceeded(err) {
 			return models.Board{}, err
 		}
 		r.logger.Error("ошибка получения борда", zap.Uint8("id", id), zap.Error(err))
@@ -232,7 +243,7 @@ func (r *Repository) GetBoardByIDWithTradePoint(ctx context.Context, id uint8) (
 		if errors.Is(err, sql.ErrNoRows) {
 			return models.Board{}, apperrors.ErrNotFound
 		}
-		if IsExceeded(err) {
+		if shutdown.IsExceeded(err) {
 			return models.Board{}, err
 		}
 		r.logger.Error("ошибка получения борда", zap.Uint8("id", id), zap.Error(err))
@@ -262,16 +273,11 @@ func setBoardTradePoint(row *models.Board, i sql.NullInt32, c sql.NullString, n 
 
 	row.TradePoint.Id = id
 
-	//var code string
 	if c.Valid {
-		//code = c.String
 		row.TradePoint.Code = c.String
 	}
-	//var name string
 	if n.Valid {
-		//name = n.String
 		row.TradePoint.Name = n.String
 	}
-	//row.TradePoint = &tr
 
 }

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/boldlogic/PortfolioLens/pkg/shutdown"
 	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/apperrors"
 	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/models"
 	mssql "github.com/microsoft/go-mssqldb"
@@ -76,7 +77,7 @@ func (r *Repository) DeleteSecurityLimitsOtcBeforeDate(ctx context.Context, date
 	_, err := r.db.ExecContext(ctx, deleteSecurityLimitsOtcBeforeDate, date)
 	if err != nil {
 
-		if IsExceeded(err) {
+		if shutdown.IsExceeded(err) {
 			return err
 		}
 
@@ -96,7 +97,7 @@ func (r *Repository) RollSecurityLimitsOtcFromDateToDate(ctx context.Context, da
 		dateTo, dateFrom)
 	if err != nil {
 
-		if IsExceeded(err) {
+		if shutdown.IsExceeded(err) {
 			return err
 		}
 
@@ -131,7 +132,7 @@ func (r *Repository) SaveSecurityLimitOtc(ctx context.Context, s models.Security
 		s.ISIN)
 
 	if err != nil {
-		if IsExceeded(err) {
+		if shutdown.IsExceeded(err) {
 			return err
 		}
 
@@ -168,7 +169,7 @@ func (r *Repository) GetSecurityLimitsOtcMaxDate(ctx context.Context) (*time.Tim
 
 	err := row.Scan(&date)
 	if err != nil {
-		if IsExceeded(err) {
+		if shutdown.IsExceeded(err) {
 			return nil, err
 		}
 
@@ -187,7 +188,7 @@ func (r *Repository) GetSecurityLimitsOtc(ctx context.Context, date time.Time) (
 	var result []models.SecurityLimit
 	rows, err := r.db.QueryContext(ctx, getSecurityLimitsOtc, date)
 	if err != nil {
-		if IsExceeded(err) {
+		if shutdown.IsExceeded(err) {
 			return nil, err
 		}
 
@@ -214,7 +215,7 @@ func (r *Repository) GetSecurityLimitsOtc(ctx context.Context, date time.Time) (
 			&row.ISIN,
 		)
 		if err != nil {
-			if IsExceeded(err) {
+			if shutdown.IsExceeded(err) {
 				return nil, err
 			}
 

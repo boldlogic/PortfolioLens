@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 
+	"github.com/boldlogic/PortfolioLens/pkg/shutdown"
 	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/apperrors"
 	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/models"
 	"go.uber.org/zap"
@@ -29,7 +30,7 @@ func (r *Repository) GetTradePoints(ctx context.Context) ([]models.TradePoint, e
 
 	rows, err := r.db.QueryContext(ctx, getTradePoints)
 	if err != nil {
-		if IsExceeded(err) {
+		if shutdown.IsExceeded(err) {
 			return nil, err
 		}
 
@@ -43,11 +44,11 @@ func (r *Repository) GetTradePoints(ctx context.Context) ([]models.TradePoint, e
 		row := models.TradePoint{}
 		err = rows.Scan(&row.Id, &row.Code, &row.Name)
 		if err != nil {
-			if IsExceeded(err) {
+			if shutdown.IsExceeded(err) {
 				return nil, err
 			}
-			r.logger.Error("не удалось получить торговые площадки", zap.Error(err))
 
+			r.logger.Error("ошибка чтения торговой площадки", zap.Error(err))
 			return nil, apperrors.ErrRetrievingData
 		}
 		result = append(result, row)
@@ -55,6 +56,7 @@ func (r *Repository) GetTradePoints(ctx context.Context) ([]models.TradePoint, e
 	if rows.Err() != nil {
 		return nil, apperrors.ErrRetrievingData
 	}
+
 	r.logger.Debug("количество найденных торговых площадок", zap.Int("count", len(result)))
 
 	if len(result) == 0 {
@@ -69,14 +71,18 @@ func (r *Repository) GetTradePointByID(ctx context.Context, id uint8) (models.Tr
 	var row models.TradePoint
 	err := r.db.QueryRowContext(ctx, getTradePointByID, id).Scan(&row.Id, &row.Code, &row.Name)
 	if err != nil {
+		if shutdown.IsExceeded(err) {
+			return models.TradePoint{}, err
+		}
+
 		if errors.Is(err, sql.ErrNoRows) {
 			return models.TradePoint{}, apperrors.ErrNotFound
 		}
-		if IsExceeded(err) {
-			return models.TradePoint{}, err
-		}
+
 		r.logger.Error("ошибка получения торговой площадки", zap.Uint8("id", id), zap.Error(err))
 		return models.TradePoint{}, apperrors.ErrRetrievingData
 	}
+	r.logger.Debug("торговая площадка получена", zap.Uint8("id", id))
+
 	return row, nil
 }

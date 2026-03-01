@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 
+	"github.com/boldlogic/PortfolioLens/pkg/shutdown"
 	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/apperrors"
 	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/models"
 	"go.uber.org/zap"
@@ -43,7 +44,7 @@ func (r *Repository) SyncInstrumentTypesFromQuotes(ctx context.Context) error {
 	_, err := r.db.ExecContext(ctx, mergeInstrumentTypesFromQuotes)
 
 	if err != nil {
-		if IsExceeded(err) {
+		if shutdown.IsExceeded(err) {
 			return err
 		}
 
@@ -61,6 +62,9 @@ func (r *Repository) InsInstrumentType(ctx context.Context, title string) (model
 	err := row.Scan(&res.Id, &res.Title)
 
 	if err != nil {
+		if shutdown.IsExceeded(err) {
+			return models.InstrumentType{}, err
+		}
 		r.logger.Error("ошибка сохранения типа инструмента", zap.String("title", title), zap.Error(err))
 		return models.InstrumentType{}, apperrors.ErrSavingData
 	}
@@ -77,6 +81,9 @@ func (r *Repository) GetInstrumentTypeId(ctx context.Context, title string) (mod
 	err := row.Scan(&res.Id, &res.Title)
 
 	if err != nil {
+		if shutdown.IsExceeded(err) {
+			return models.InstrumentType{}, err
+		}
 		if errors.Is(err, sql.ErrNoRows) {
 			r.logger.Error("типа инструмента не найден", zap.String("title", title))
 			return models.InstrumentType{}, apperrors.ErrNotFound
