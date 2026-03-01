@@ -14,7 +14,7 @@ const (
 	selInstrumentId = `
 		SELECT instrument_id
 		FROM quik.instruments
-		where ticker=@p1
+		where ticker=@p1 and trade_point_id=@p2
 	`
 	insInstrument = `
 		INSERT INTO quik.instruments (
@@ -25,7 +25,8 @@ const (
 			isin,
 			face_value,
 			maturity_date,
-			coupon_duration
+			coupon_duration,
+			trade_point_id
 			)
 		output inserted.instrument_id
 		VALUES (
@@ -37,21 +38,22 @@ const (
 			,@p6
 			,@p7
 			,@p8
+			,@p9
 		)	
 	`
 )
 
-func (r *Repository) GetInstrumentId(ctx context.Context, ticker string) (int, error) {
+func (r *Repository) GetInstrumentId(ctx context.Context, ticker string, tradePointId uint8) (int, error) {
 	var instrumentId int
-	r.logger.Debug("получение id инструмента по тикеру", zap.String("ticker", ticker))
-	row := r.db.QueryRowContext(ctx, selInstrumentId, ticker)
+	r.logger.Debug("получение id инструмента по тикеру", zap.String("ticker", ticker), zap.Uint8("trade_point_id", tradePointId))
+	row := r.db.QueryRowContext(ctx, selInstrumentId, ticker, tradePointId)
 	err := row.Scan(&instrumentId)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			r.logger.Debug("инструмент не найден", zap.String("ticker", ticker))
+			r.logger.Debug("инструмент не найден", zap.String("ticker", ticker), zap.Uint8("trade_point_id", tradePointId))
 			return 0, apperrors.ErrNotFound
 		}
-		r.logger.Error("ошибка получения инструмента", zap.String("ticker", ticker), zap.Error(err))
+		r.logger.Error("ошибка получения инструмента", zap.String("ticker", ticker), zap.Uint8("trade_point_id", tradePointId), zap.Error(err))
 		return 0, err
 	}
 	return instrumentId, nil
@@ -62,11 +64,11 @@ func (r *Repository) InsInstrument(ctx context.Context, i models.Instrument) (in
 	r.logger.Debug("сохранение инструмента", zap.String("Ticker", i.Ticker))
 	row := r.db.QueryRowContext(ctx, insInstrument, i.Ticker, i.RegistrationNumber,
 		i.FullName, i.ShortName, i.ISIN, i.FaceValue, i.MaturityDate,
-		i.CouponDuration)
+		i.CouponDuration, i.TradePointId)
 
 	err := row.Scan(&instrumentId)
 	if err != nil {
-		r.logger.Error("ошибка сохранения инструмента", zap.String("Ticker", i.Ticker), zap.Error(err))
+		r.logger.Error("ошибка сохранения инструмента", zap.String("ticker", i.Ticker), zap.Uint8("trade_point_id", i.TradePointId), zap.Error(err))
 		return 0, apperrors.ErrSavingData
 	}
 

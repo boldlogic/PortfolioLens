@@ -44,9 +44,9 @@ func (c *Config) validate() []error {
 		errs = append(errs, dbErrs...)
 	}
 
-	HttpErrs := c.Http.validate()
-	if len(dbErrs) > 0 {
-		errs = append(errs, HttpErrs...)
+	httpErrs := c.Http.validate()
+	if len(httpErrs) > 0 {
+		errs = append(errs, httpErrs...)
 	}
 	return errs
 }

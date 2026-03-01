@@ -29,7 +29,7 @@ func main() {
 	app.Logger.Info("Приложение запущено")
 	err = app.Wait(ctx, cancel)
 	if err != nil {
-		log.Fatal("Приложение завершилось с ошибкой. Последняя ошибка")
+		log.Fatalf("Приложение завершилось с ошибкой: %v", err)
 	}
 	app.Logger.Info("Приложение завершилось без ошибок")
 }

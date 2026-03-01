@@ -54,14 +54,7 @@ func (a *Application) Start(ctx context.Context) error {
 	}
 	a.repo = repo
 
-	// i, err := a.repo.SelectNewCurrentQuote(ctx)
-	// if err != nil {
-	// 	return fmt.Errorf("%w", err)
-	// }
 	a.svc = service.NewService(ctx, a.repo, a.repo, a.repo, a.Logger)
-
-	a.Logger.Debug("ok")
-	//fmt.Println(i)
 
 	a.wg.Add(1)
 	go func() {
@@ -69,27 +62,27 @@ func (a *Application) Start(ctx context.Context) error {
 		a.svc.RollForwardSecurityLimitsOtc(ctx)
 	}()
 
-	err = a.InitDictionaries(ctx)
-	if err != nil {
-		return err
-	}
-	for i := 0; i <= 60000; i++ {
-		a.svc.SaveInstrument(ctx)
-	}
-
 	handler := httpserver.NewHandler(a.svc, a.Logger)
 	router := httpserver.NewRouter(handler, a.Logger, a.cfg)
 	a.httpSrv = httpserver.New(router.Mux, a.cfg.Http, a.Logger)
 
+	err = a.InitDictionaries(ctx)
+	if err != nil {
+		return err
+	}
 	a.httpWg.Add(1)
 
 	go func() {
 		defer a.httpWg.Done()
-		if err := a.httpSrv.ListenAndServe(); err != nil && errors.Is(err, http.ErrServerClosed) {
+		if err := a.httpSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			a.errChan <- fmt.Errorf("http server остановлен с ошибкой: %w", err)
 		}
 	}()
+	a.Logger.Debug("ok")
 
+	for i := 0; i <= 60000; i++ {
+		a.svc.SaveInstrument(ctx)
+	}
 	return nil
 }
 

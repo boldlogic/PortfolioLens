@@ -82,8 +82,8 @@ const (
 		INNER JOIN quik.trade_points tp ON tp.code = CASE
 			WHEN b.name LIKE 'SPB OTC:%' THEN 'SPB_OTC'
 			WHEN b.name LIKE 'SPB:%' THEN 'SPB'
-			WHEN b.name LIKE 'FORTS:%' OR b.name LIKE N'%: FORTS' THEN 'FORTS'
-			WHEN b.name LIKE N'МБ Деривативы:%' THEN 'FORTS'
+			WHEN b.name LIKE 'FORTS:%' OR b.name LIKE N'%: FORTS' THEN 'MOEX'
+			WHEN b.name LIKE N'МБ Деривативы:%' THEN 'MOEX'
 			WHEN b.name LIKE N'МБ%' AND (b.name LIKE N'%OTC%' OR b.name LIKE N'%ОТС%' OR b.name LIKE N'%OТС%') THEN 'MOEX_OTC'
 			WHEN b.name LIKE N'МБ%' THEN 'MOEX'
 			WHEN b.name LIKE N'БКС%' THEN 'BCS_OTC'

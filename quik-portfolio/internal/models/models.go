@@ -111,21 +111,8 @@ type Instrument struct {
 	CouponDuration     *int       // Длительность купона
 	FaceValue          *float64   // Номинал
 
-	// ClassCode string // Код класса
-	// ClassName string // Наименование класса
-	// TypeId    uint8
-	// Type      InstrumentType // Тип инструмента
-	// SubTypeId *uint8
-	// SubType   InstrumentSubType // Подтип инструмента
-	// //InstrumentType     string     `gorm:"column:instrument_type;type:char(100)"`
-	// //InstrumentSubtype  string     `gorm:"column:instrument_subtype;type:char(100)"`
-	// //AssetClass      string
-	// //AssetSubClass   string
-
-	// BaseCurrency    string  // Валюта номинала / базовая валюта
-	// QuoteCurrency   *string // Валюта котировки
-	// CounterCurrency *string // Сопряженная валюта
-
+	TradePointId uint8
+	TradePoint   *TradePoint
 }
 
 type MoneyLimit struct {

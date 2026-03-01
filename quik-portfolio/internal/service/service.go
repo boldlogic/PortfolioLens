@@ -17,10 +17,11 @@ type Service struct {
 }
 
 type InstrumentRepository interface {
-	SelectInstrumentFromNewCurrentQuote(ctx context.Context) (models.Instrument, string, error)
+	SelectInstrumentFromNewCurrentQuote(ctx context.Context) (models.Instrument, models.InstrumentBoard, string, error)
 	InsInstrument(ctx context.Context, i models.Instrument) (int, error)
 	SetInstrument(ctx context.Context, id int, ic string) error
-	GetInstrumentId(ctx context.Context, ticker string) (int, error)
+	GetInstrumentId(ctx context.Context, ticker string, tradePointId uint8) (int, error)
+	MergeInstrumentBoard(ctx context.Context, ib models.InstrumentBoard) error
 }
 
 type QuikRefsRepository interface {
@@ -68,12 +69,13 @@ func NewService(ctx context.Context, intrRepo InstrumentRepository, quikRefsRepo
 }
 
 func (s *Service) SaveInstrument(ctx context.Context) error {
-	instr, instrumentClass, err := s.instrRepo.SelectInstrumentFromNewCurrentQuote(ctx)
+	instr, instrumentBoard, instrumentClass, err := s.instrRepo.SelectInstrumentFromNewCurrentQuote(ctx)
 	if err != nil {
 		return err
 	}
 
-	id, err := s.instrRepo.GetInstrumentId(ctx, instr.Ticker)
+	//1. сначала инструмент
+	id, err := s.instrRepo.GetInstrumentId(ctx, instr.Ticker, instr.TradePointId)
 	s.logger.Debug("успешно получен инстуремент для котировки", zap.Int("id", id))
 
 	if err != nil && err != apperrors.ErrNotFound {
@@ -82,7 +84,7 @@ func (s *Service) SaveInstrument(ctx context.Context) error {
 	} else if id > 0 {
 		err = s.instrRepo.SetInstrument(ctx, id, instrumentClass)
 		s.logger.Debug("успешно обновлен инстуремент для котировки", zap.String("Ticker", instr.Ticker))
-		return nil
+		//return nil
 	} else if err == apperrors.ErrNotFound || id == 0 {
 
 		id, err = s.instrRepo.InsInstrument(ctx, instr)
@@ -98,7 +100,17 @@ func (s *Service) SaveInstrument(ctx context.Context) error {
 		}
 		s.logger.Debug("успешно создан инструмент", zap.Int("id", id))
 
-		return nil
+		//return nil
 	}
+
+	// 2. потом борд
+	instrumentBoard.InstrumentId = id
+	err = s.instrRepo.MergeInstrumentBoard(ctx, instrumentBoard)
+	if err != nil {
+		return err
+	}
+
+	s.logger.Debug("успешно создана связь борда с инструментом", zap.Int("id", id), zap.Uint8("BoardId", instrumentBoard.BoardId))
+
 	return nil
 }

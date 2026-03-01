@@ -14,11 +14,11 @@ func (h *Handler) readGetLimitsRequest(r *http.Request) (*time.Time, error) {
 	var date time.Time
 	dateReq := r.URL.Query().Get("date")
 	if dateReq != "" {
-		date, err := utils.ParseDate(dateReq)
+		parsed, err := utils.ParseDate(dateReq)
 		if err != nil {
 			return nil, fmt.Errorf("Некорректный формат date. Ожидается YYYY-MM-DD")
 		}
-		return date, nil
+		return parsed, nil
 	}
 
 	date = time.Now()

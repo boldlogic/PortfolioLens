@@ -12,6 +12,7 @@ import (
 )
 
 const (
+	//Поклассовый перебор, для дальнейшей оптимизации (важно зафиксировать метрики перед этим)
 	selectInstrumentFromNewCurrentQuote = `
 		SELECT TOP (1)
 			q.instrument_class,
@@ -22,11 +23,25 @@ const (
 			q.short_name,
 			q.face_value,
 			q.maturity_date,
-			q.coupon_duration
+			q.coupon_duration,
+			p.point_id,
+			b.board_id,
+			it.type_id,
+			ist.subtype_id,
+			curr.iso_code,
+			base_curr.iso_code,
+			quote_curr.iso_code,
+			counter_curr.iso_code
 		FROM
 			quik.current_quotes q
 			JOIN quik.boards b ON b.code = q.class_code
 			JOIN quik.trade_points p ON p.point_id = b.trade_point_id
+			JOIN quik.instrument_types it ON it.title = q.instrument_type
+    		LEFT JOIN quik.instrument_subtypes ist ON ist.type_id = it.type_id AND ist.title = q.instrument_subtype
+			LEFT JOIN dbo.currencies curr ON curr.iso_char_code = RTRIM(CASE WHEN q.currency IN ('SUR', 'RUR') THEN 'RUB' ELSE q.currency END)
+    		LEFT JOIN dbo.currencies base_curr ON base_curr.iso_char_code = RTRIM(CASE WHEN q.base_currency IN ('SUR', 'RUR') THEN 'RUB' ELSE q.base_currency END)
+    		LEFT JOIN dbo.currencies quote_curr ON quote_curr.iso_char_code = RTRIM(CASE WHEN q.quote_currency IN ('SUR', 'RUR') THEN 'RUB' ELSE q.quote_currency END)
+    		LEFT JOIN dbo.currencies counter_curr ON counter_curr.iso_char_code = RTRIM(CASE WHEN q.counter_currency IN ('SUR', 'RUR') THEN 'RUB' ELSE q.counter_currency END)
 		WHERE
 			q.instrument_id IS NULL
 			`
@@ -47,6 +62,7 @@ type QuoteInstrument struct {
 	MaturityDate       sql.NullTime    // Дата погашения
 	CouponDuration     sql.NullInt64   // Длительность купона
 	FaceValue          sql.NullFloat64 // Номинал
+	TradePointId       uint8
 }
 
 func (r *Repository) SetInstrument(ctx context.Context, id int, ic string) error {
@@ -68,8 +84,10 @@ func (r *Repository) SetInstrument(ctx context.Context, id int, ic string) error
 	return nil
 }
 
-func (r *Repository) SelectInstrumentFromNewCurrentQuote(ctx context.Context) (models.Instrument, string, error) {
+func (r *Repository) SelectInstrumentFromNewCurrentQuote(ctx context.Context) (models.Instrument, models.InstrumentBoard, string, error) {
 	qi := QuoteInstrument{}
+	qib := instrumentBoard{}
+
 	r.logger.Debug("выбор котировки без привязанного инструмента")
 	row := r.db.QueryRowContext(ctx, selectInstrumentFromNewCurrentQuote)
 
@@ -81,23 +99,33 @@ func (r *Repository) SelectInstrumentFromNewCurrentQuote(ctx context.Context) (m
 		&qi.ShortName,
 		&qi.FaceValue,
 		&qi.MaturityDate,
-		&qi.CouponDuration)
+		&qi.CouponDuration,
+		&qi.TradePointId,
+		&qib.BoardId,
+		&qib.TypeId,
+		&qib.SubTypeId,
+		&qib.CurrencyId,
+		&qib.BaseCurrencyId,
+		&qib.QuoteCurrencyId,
+		&qib.CounterCurrencyId)
 
 	if err != nil {
 		if IsExceeded(err) {
-			return models.Instrument{}, "", err
+			return models.Instrument{}, models.InstrumentBoard{}, "", err
 		}
 		if errors.Is(err, sql.ErrNoRows) {
 			r.logger.Debug("котировок без инструмента не найдено")
-			return models.Instrument{}, "", apperrors.ErrNotFound
+			return models.Instrument{}, models.InstrumentBoard{}, "", apperrors.ErrNotFound
 		}
 		r.logger.Error("ошибка получения котировки", zap.Error(err))
-		return models.Instrument{}, "", err
+		return models.Instrument{}, models.InstrumentBoard{}, "", err
 	}
 
 	i := qi.convertToInstrument()
 
-	return i, qi.InstrumentClass, nil
+	ib := qib.convertToInstrumentBoard()
+
+	return i, ib, qi.InstrumentClass, nil
 }
 
 func (qi *QuoteInstrument) convertToInstrument() models.Instrument {
@@ -131,5 +159,35 @@ func (qi *QuoteInstrument) convertToInstrument() models.Instrument {
 		faceValue := qi.FaceValue.Float64
 		i.FaceValue = &faceValue
 	}
+	i.TradePointId = qi.TradePointId
 	return i
+}
+
+func (qib *instrumentBoard) convertToInstrumentBoard() models.InstrumentBoard {
+
+	ib := models.InstrumentBoard{}
+	ib.BoardId = qib.BoardId
+	ib.TypeId = qib.TypeId
+
+	if qib.SubTypeId.Valid {
+		sid := uint8(qib.SubTypeId.Int16)
+		ib.SubTypeId = &sid
+	}
+	if qib.CurrencyId.Valid {
+		cid := int(qib.CurrencyId.Int64)
+		ib.CurrencyId = &cid
+	}
+	if qib.BaseCurrencyId.Valid {
+		cid := int(qib.BaseCurrencyId.Int64)
+		ib.BaseCurrencyId = &cid
+	}
+	if qib.QuoteCurrencyId.Valid {
+		cid := int(qib.QuoteCurrencyId.Int64)
+		ib.QuoteCurrencyId = &cid
+	}
+	if qib.CounterCurrencyId.Valid {
+		cid := int(qib.CounterCurrencyId.Int64)
+		ib.CounterCurrencyId = &cid
+	}
+	return ib
 }
