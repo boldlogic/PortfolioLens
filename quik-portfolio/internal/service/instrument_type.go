@@ -3,10 +3,11 @@ package service
 import "context"
 
 func (s *Service) ActualizeInstrumentTypes(ctx context.Context) error {
+	return s.quikRefsRepo.SyncInstrumentTypesFromQuotes(ctx)
+}
 
-	err := s.quikRefsRepo.SyncInstrumentTypesFromQuotes(ctx)
-	return err
-
+func (s *Service) SaveInstrumentTypesFromQuotes(ctx context.Context) error {
+	return s.quikRefsRepo.SyncInstrumentTypesFromQuotes(ctx)
 }
 
 func (s *Service) ActualizeInstrumentSubTypes(ctx context.Context) error {

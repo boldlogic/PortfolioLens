@@ -13,6 +13,7 @@ import (
 	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/repository"
 	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/service"
 	httpserver "github.com/boldlogic/PortfolioLens/quik-portfolio/internal/transport/http"
+	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/workers"
 	"go.uber.org/zap"
 )
 
@@ -56,10 +57,14 @@ func (a *Application) Start(ctx context.Context) error {
 
 	a.svc = service.NewService(ctx, a.repo, a.repo, a.repo, a.Logger)
 
+	runner := workers.NewRunner(
+		workers.NewRollForwardOtcWorker(a.svc, a.Logger, 60*time.Second),
+		workers.NewSaveInstrumentTypesFromQuotesWorker(a.svc, a.Logger, 60*time.Second),
+	)
 	a.wg.Add(1)
 	go func() {
 		defer a.wg.Done()
-		a.svc.RollForwardSecurityLimitsOtc(ctx)
+		runner.Run(ctx)
 	}()
 
 	handler := httpserver.NewHandler(a.svc, a.Logger)
