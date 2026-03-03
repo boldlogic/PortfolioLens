@@ -70,7 +70,7 @@ ORDER BY load_date, client_code, ticker, trade_account, firm_code;
 
 func (r *Repository) SaveSecurityLimit(ctx context.Context, s models.SecurityLimit) error {
 
-	_, err := r.db.ExecContext(ctx, insertSecurityLimit,
+	_, err := r.Db.ExecContext(ctx, insertSecurityLimit,
 		s.LoadDate, s.ClientCode, s.Ticker, s.TradeAccount, s.SettleCode,
 		s.FirmCode, s.FirmName, s.Balance, s.AcquisitionCcy, s.ISIN)
 	if err != nil {
@@ -80,17 +80,17 @@ func (r *Repository) SaveSecurityLimit(ctx context.Context, s models.SecurityLim
 
 		var msErr mssql.Error
 		if errors.As(err, &msErr) && (msErr.Number == 2627 || msErr.Number == 2601) {
-			r.logger.Warn("лимит по бумаге уже существует", zap.Time("LoadDate", s.LoadDate), zap.String("ClientCode", s.ClientCode), zap.String("Ticker", s.Ticker),
+			r.Logger.Warn("лимит по бумаге уже существует", zap.Time("LoadDate", s.LoadDate), zap.String("ClientCode", s.ClientCode), zap.String("Ticker", s.Ticker),
 				zap.String("TradeAccount", s.TradeAccount), zap.String("SettleCode", s.SettleCode), zap.String("SettleCode", s.SettleCode), zap.String("FirmCode", s.FirmCode))
 			return apperrors.ErrConflict
 		}
 
-		r.logger.Error("ошибка при создании лимита по бумаге", zap.Time("LoadDate", s.LoadDate), zap.String("ClientCode", s.ClientCode), zap.String("Ticker", s.Ticker),
+		r.Logger.Error("ошибка при создании лимита по бумаге", zap.Time("LoadDate", s.LoadDate), zap.String("ClientCode", s.ClientCode), zap.String("Ticker", s.Ticker),
 			zap.String("TradeAccount", s.TradeAccount), zap.String("SettleCode", s.SettleCode), zap.String("SettleCode", s.SettleCode), zap.String("FirmCode", s.FirmCode), zap.Error(err))
 		return apperrors.ErrSavingData
 	}
 
-	r.logger.Debug("лимит по бумаге успешно сохранен", zap.Time("LoadDate", s.LoadDate), zap.String("ClientCode", s.ClientCode), zap.String("Ticker", s.Ticker),
+	r.Logger.Debug("лимит по бумаге успешно сохранен", zap.Time("LoadDate", s.LoadDate), zap.String("ClientCode", s.ClientCode), zap.String("Ticker", s.Ticker),
 		zap.String("TradeAccount", s.TradeAccount), zap.String("SettleCode", s.SettleCode), zap.String("SettleCode", s.SettleCode), zap.String("FirmCode", s.FirmCode))
 	return nil
 }
@@ -98,18 +98,18 @@ func (r *Repository) SaveSecurityLimit(ctx context.Context, s models.SecurityLim
 func (r *Repository) GetSecurityLimits(ctx context.Context, date time.Time) ([]models.SecurityLimit, error) {
 	var result []models.SecurityLimit
 
-	rows, err := r.db.QueryContext(ctx, getSecurityLimits, date)
-	r.logger.Debug("", zap.Error(err))
+	rows, err := r.Db.QueryContext(ctx, getSecurityLimits, date)
+	r.Logger.Debug("", zap.Error(err))
 
 	if err != nil {
 		if shutdown.IsExceeded(err) {
 			return nil, err
 		}
 		if errors.Is(err, sql.ErrNoRows) {
-			r.logger.Debug("позиции по бумагам не найдены")
+			r.Logger.Debug("позиции по бумагам не найдены")
 			return nil, apperrors.ErrNotFound
 		}
-		r.logger.Error("ошибка запроса позиций по бумагам", zap.Error(err))
+		r.Logger.Error("ошибка запроса позиций по бумагам", zap.Error(err))
 		return nil, apperrors.ErrRetrievingData
 	}
 	defer rows.Close()
@@ -131,7 +131,7 @@ func (r *Repository) GetSecurityLimits(ctx context.Context, date time.Time) ([]m
 			if shutdown.IsExceeded(err) {
 				return nil, err
 			}
-			r.logger.Error("ошибка при сканировании позиции по бумагам", zap.Error(err))
+			r.Logger.Error("ошибка при сканировании позиции по бумагам", zap.Error(err))
 			return nil, apperrors.ErrRetrievingData
 		}
 		result = append(result, row)
@@ -139,9 +139,9 @@ func (r *Repository) GetSecurityLimits(ctx context.Context, date time.Time) ([]m
 	if rows.Err() != nil {
 		return nil, apperrors.ErrRetrievingData
 	}
-	r.logger.Debug("результаты получения позиций по бумагам", zap.Int("", len(result)))
+	r.Logger.Debug("результаты получения позиций по бумагам", zap.Int("", len(result)))
 	if len(result) == 0 {
-		r.logger.Debug("позиции по бумагам не найдены")
+		r.Logger.Debug("позиции по бумагам не найдены")
 		return nil, apperrors.ErrNotFound
 
 	}

@@ -5,9 +5,10 @@ import (
 	"database/sql"
 	"errors"
 
+	md "github.com/boldlogic/PortfolioLens/pkg/models"
+	"github.com/boldlogic/PortfolioLens/pkg/models/quik"
 	"github.com/boldlogic/PortfolioLens/pkg/shutdown"
 	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/apperrors"
-	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/models"
 	"go.uber.org/zap"
 )
 
@@ -92,68 +93,68 @@ const (
 		END`
 )
 
-func (r *Repository) InsBoard(ctx context.Context, code string, name string) (models.Board, error) {
-	res := models.Board{}
-	row := r.db.QueryRowContext(ctx, insBoard, code, name)
+func (r *Repository) InsBoard(ctx context.Context, code string, name string) (quik.Board, error) {
+	res := quik.Board{}
+	row := r.Db.QueryRowContext(ctx, insBoard, code, name)
 	err := row.Scan(&res.Id, &res.Code, &res.Name)
 	if err != nil {
 		if shutdown.IsExceeded(err) {
-			return models.Board{}, err
+			return quik.Board{}, err
 		}
 
-		r.logger.Error("ошибка сохранения кода класса", zap.String("code", code), zap.Error(err))
-		return models.Board{}, apperrors.ErrSavingData
+		r.Logger.Error("ошибка сохранения кода класса", zap.String("code", code), zap.Error(err))
+		return quik.Board{}, apperrors.ErrSavingData
 	}
 
-	r.logger.Debug("кода класса успешно сохранен", zap.String("code", code), zap.Uint8("board_id", res.Id))
+	r.Logger.Debug("кода класса успешно сохранен", zap.String("code", code), zap.Uint8("board_id", res.Id))
 	return res, nil
 }
 
 func (r *Repository) SyncBoardsFromQuotes(ctx context.Context) error {
-	_, err := r.db.ExecContext(ctx, mergeBoardsFromQuotes)
+	_, err := r.Db.ExecContext(ctx, mergeBoardsFromQuotes)
 	if err != nil {
 		if shutdown.IsExceeded(err) {
 			return err
 		}
 
-		r.logger.Error("ошибка сохранения кодов классов из котировок", zap.Error(err))
+		r.Logger.Error("ошибка сохранения кодов классов из котировок", zap.Error(err))
 		return apperrors.ErrSavingData
 	}
 
-	r.logger.Debug("коды классов успешно сохранены из котировок")
+	r.Logger.Debug("коды классов успешно сохранены из котировок")
 	return nil
 }
 
 func (r *Repository) TagBoardsTradePointId(ctx context.Context) error {
-	_, err := r.db.ExecContext(ctx, tagBoardsTradePointId)
+	_, err := r.Db.ExecContext(ctx, tagBoardsTradePointId)
 	if err != nil {
 		if shutdown.IsExceeded(err) {
 			return err
 		}
 
-		r.logger.Error("ошибка разметки кодов классов", zap.Error(err))
+		r.Logger.Error("ошибка разметки кодов классов", zap.Error(err))
 		return apperrors.ErrSavingData
 	}
 
-	r.logger.Debug("разметка кодов классов по торговым площадкам завершена успешно")
+	r.Logger.Debug("разметка кодов классов по торговым площадкам завершена успешно")
 	return nil
 }
 
-func (r *Repository) GetBoards(ctx context.Context) ([]models.Board, error) {
-	rows, err := r.db.QueryContext(ctx, getBoards)
+func (r *Repository) GetBoards(ctx context.Context) ([]quik.Board, error) {
+	rows, err := r.Db.QueryContext(ctx, getBoards)
 	if err != nil {
 		if shutdown.IsExceeded(err) {
 			return nil, err
 		}
 
-		r.logger.Error("ошибка получения кодов классов", zap.Error(err))
+		r.Logger.Error("ошибка получения кодов классов", zap.Error(err))
 		return nil, apperrors.ErrRetrievingData
 	}
 	defer rows.Close()
 
-	var result []models.Board
+	var result []quik.Board
 	for rows.Next() {
-		var row models.Board
+		var row quik.Board
 		var tradePointID sql.NullInt32
 		err = rows.Scan(&row.Id, &row.Code, &row.Name, &tradePointID, &row.IsTraded)
 		if err != nil {
@@ -161,7 +162,7 @@ func (r *Repository) GetBoards(ctx context.Context) ([]models.Board, error) {
 				return nil, err
 			}
 
-			r.logger.Error("ошибка чтения кода класса", zap.Error(err))
+			r.Logger.Error("ошибка чтения кода класса", zap.Error(err))
 			return nil, apperrors.ErrRetrievingData
 		}
 
@@ -174,21 +175,21 @@ func (r *Repository) GetBoards(ctx context.Context) ([]models.Board, error) {
 	return result, nil
 }
 
-func (r *Repository) GetBoardsWithTradePoint(ctx context.Context) ([]models.Board, error) {
-	rows, err := r.db.QueryContext(ctx, getBoardsWithTradePoint)
+func (r *Repository) GetBoardsWithTradePoint(ctx context.Context) ([]quik.Board, error) {
+	rows, err := r.Db.QueryContext(ctx, getBoardsWithTradePoint)
 	if err != nil {
 		if shutdown.IsExceeded(err) {
 			return nil, err
 		}
-		r.logger.Error("ошибка получения бордов", zap.Error(err))
+		r.Logger.Error("ошибка получения бордов", zap.Error(err))
 		return nil, apperrors.ErrRetrievingData
 	}
 	defer rows.Close()
 
-	r.logger.Debug("получение борда")
-	var result []models.Board
+	r.Logger.Debug("получение борда")
+	var result []quik.Board
 	for rows.Next() {
-		var row models.Board
+		var row quik.Board
 		var tradePointID sql.NullInt32
 		var tradePointCode sql.NullString
 		var tradePointName sql.NullString
@@ -199,10 +200,10 @@ func (r *Repository) GetBoardsWithTradePoint(ctx context.Context) ([]models.Boar
 			if shutdown.IsExceeded(err) {
 				return nil, err
 			}
-			r.logger.Error("ошибка сканирования борда", zap.Error(err))
+			r.Logger.Error("ошибка сканирования борда", zap.Error(err))
 			return nil, apperrors.ErrRetrievingData
 		}
-		r.logger.Debug("получение борда", zap.Any("tradePointID", tradePointID), zap.Any("tradePointCode", tradePointCode), zap.Any("tradePointName", tradePointName))
+		r.Logger.Debug("получение борда", zap.Any("tradePointID", tradePointID), zap.Any("tradePointCode", tradePointCode), zap.Any("tradePointName", tradePointName))
 		setBoardTradePoint(&row, tradePointID, tradePointCode, tradePointName)
 		result = append(result, row)
 	}
@@ -212,55 +213,55 @@ func (r *Repository) GetBoardsWithTradePoint(ctx context.Context) ([]models.Boar
 	return result, nil
 }
 
-func (r *Repository) GetBoardByID(ctx context.Context, id uint8) (models.Board, error) {
-	var row models.Board
+func (r *Repository) GetBoardByID(ctx context.Context, id uint8) (quik.Board, error) {
+	var row quik.Board
 	var tradePointID sql.NullInt32
-	err := r.db.QueryRowContext(ctx, getBoardByID, id).Scan(&row.Id, &row.Code, &row.Name, &tradePointID, &row.IsTraded)
+	err := r.Db.QueryRowContext(ctx, getBoardByID, id).Scan(&row.Id, &row.Code, &row.Name, &tradePointID, &row.IsTraded)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return models.Board{}, apperrors.ErrNotFound
+			return quik.Board{}, apperrors.ErrNotFound
 		}
 		if shutdown.IsExceeded(err) {
-			return models.Board{}, err
+			return quik.Board{}, err
 		}
-		r.logger.Error("ошибка получения борда", zap.Uint8("id", id), zap.Error(err))
-		return models.Board{}, apperrors.ErrRetrievingData
+		r.Logger.Error("ошибка получения борда", zap.Uint8("id", id), zap.Error(err))
+		return quik.Board{}, apperrors.ErrRetrievingData
 	}
 	setBoardTradePointId(&row, tradePointID)
 	return row, nil
 }
 
-func (r *Repository) GetBoardByIDWithTradePoint(ctx context.Context, id uint8) (models.Board, error) {
-	var row models.Board
+func (r *Repository) GetBoardByIDWithTradePoint(ctx context.Context, id uint8) (quik.Board, error) {
+	var row quik.Board
 	var tradePointID sql.NullInt32
 	var tradePointCode sql.NullString
 	var tradePointName sql.NullString
-	err := r.db.QueryRowContext(ctx, getBoardByIDWithTradePoint, id).Scan(
+	err := r.Db.QueryRowContext(ctx, getBoardByIDWithTradePoint, id).Scan(
 		&row.Id, &row.Code, &row.Name, &tradePointID, &row.IsTraded,
 		&tradePointCode, &tradePointName,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return models.Board{}, apperrors.ErrNotFound
+			return quik.Board{}, apperrors.ErrNotFound
 		}
 		if shutdown.IsExceeded(err) {
-			return models.Board{}, err
+			return quik.Board{}, err
 		}
-		r.logger.Error("ошибка получения борда", zap.Uint8("id", id), zap.Error(err))
-		return models.Board{}, apperrors.ErrRetrievingData
+		r.Logger.Error("ошибка получения борда", zap.Uint8("id", id), zap.Error(err))
+		return quik.Board{}, apperrors.ErrRetrievingData
 	}
 	setBoardTradePoint(&row, tradePointID, tradePointCode, tradePointName)
 	return row, nil
 }
 
-func setBoardTradePointId(row *models.Board, n sql.NullInt32) {
+func setBoardTradePointId(row *quik.Board, n sql.NullInt32) {
 	if n.Valid {
 		id := uint8(n.Int32)
 		row.TradePointId = &id
 	}
 }
 
-func setBoardTradePoint(row *models.Board, i sql.NullInt32, c sql.NullString, n sql.NullString) {
+func setBoardTradePoint(row *quik.Board, i sql.NullInt32, c sql.NullString, n sql.NullString) {
 
 	if !i.Valid {
 		return
@@ -269,7 +270,7 @@ func setBoardTradePoint(row *models.Board, i sql.NullInt32, c sql.NullString, n 
 	id := uint8(i.Int32)
 	row.TradePointId = &id
 
-	row.TradePoint = &models.TradePoint{}
+	row.TradePoint = &md.TradePoint{}
 
 	row.TradePoint.Id = id
 

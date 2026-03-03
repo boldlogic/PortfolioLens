@@ -55,14 +55,14 @@ func (a *Application) Start(ctx context.Context) error {
 	}
 	a.repo = repo
 
-	a.svc = service.NewService(ctx, a.repo, a.repo, a.repo, a.Logger)
+	a.svc = service.NewService(ctx, a.repo, a.repo, a.Logger)
 
 	runner := workers.NewRunner(
 		workers.NewRollForwardOtcWorker(a.svc, a.Logger, 60*time.Second),
 		workers.NewActualizeInstrumentTypesWorker(a.svc, a.Logger, 60*time.Second),
 		workers.NewActualizeInstrumentSubTypesWorker(a.svc, a.Logger, 60*time.Second),
 		workers.NewActualizeBoardsWorker(a.svc, a.Logger, 60*time.Second),
-		workers.NewSaveInstrumentsWorker(a.svc, a.Logger, 1*time.Second),
+		//workers.NewSaveInstrumentsWorker(a.svc, a.Logger, 1*time.Second),
 	)
 	a.wg.Add(1)
 	go func() {

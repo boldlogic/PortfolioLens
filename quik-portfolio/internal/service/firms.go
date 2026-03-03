@@ -3,14 +3,14 @@ package service
 import (
 	"context"
 
-	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/models"
+	"github.com/boldlogic/PortfolioLens/pkg/models/quik"
 )
 
-func (s *Service) SaveFirm(ctx context.Context, code string, name string) (models.Firm, error) {
+func (s *Service) SaveFirm(ctx context.Context, code string, name string) (quik.Firm, error) {
 
 	res, err := s.limitsRepo.InsertFirm(ctx, code, name)
 	if err != nil {
-		return models.Firm{}, err
+		return quik.Firm{}, err
 	}
 	return res, nil
 }

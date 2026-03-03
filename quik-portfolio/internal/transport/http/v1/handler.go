@@ -7,6 +7,8 @@ import (
 	"time"
 
 	httputils "github.com/boldlogic/PortfolioLens/pkg/http_utils"
+	md "github.com/boldlogic/PortfolioLens/pkg/models"
+	"github.com/boldlogic/PortfolioLens/pkg/models/quik"
 	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/apperrors"
 	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/models"
 	"go.uber.org/zap"
@@ -32,12 +34,12 @@ type Service interface {
 	SaveSLOtc(ctx context.Context, sec models.SecurityLimit) error
 	GetLimits(ctx context.Context, date time.Time) ([]models.Limit, error)
 	GetPortfolio(ctx context.Context) ([]models.PortfolioItem, error)
-	SaveFirm(ctx context.Context, code string, name string) (models.Firm, error)
+	SaveFirm(ctx context.Context, code string, name string) (quik.Firm, error)
 
-	GetTradePoints(ctx context.Context) ([]models.TradePoint, error)
-	GetTradePointByID(ctx context.Context, id uint8) (models.TradePoint, error)
-	GetBoards(ctx context.Context) ([]models.Board, error)
-	GetBoardByID(ctx context.Context, id uint8) (models.Board, error)
+	GetTradePoints(ctx context.Context) ([]md.TradePoint, error)
+	GetTradePointByID(ctx context.Context, id uint8) (md.TradePoint, error)
+	GetBoards(ctx context.Context) ([]quik.Board, error)
+	GetBoardByID(ctx context.Context, id uint8) (quik.Board, error)
 }
 
 type HandlerFunc func(r *http.Request) (any, string, error)

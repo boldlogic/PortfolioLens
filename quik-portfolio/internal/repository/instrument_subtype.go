@@ -5,9 +5,9 @@ import (
 	"database/sql"
 	"errors"
 
+	"github.com/boldlogic/PortfolioLens/pkg/models/quik"
 	"github.com/boldlogic/PortfolioLens/pkg/shutdown"
 	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/apperrors"
-	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/models"
 	"go.uber.org/zap"
 )
 
@@ -39,56 +39,56 @@ const (
 )
 
 func (r *Repository) SyncInstrumentSubTypesFromQuotes(ctx context.Context) error {
-	r.logger.Debug("сохранение подтипов инструментов")
-	_, err := r.db.ExecContext(ctx, mergeInstrumentSubTypesFromQuotes)
+	r.Logger.Debug("сохранение подтипов инструментов")
+	_, err := r.Db.ExecContext(ctx, mergeInstrumentSubTypesFromQuotes)
 
 	if err != nil {
 		if shutdown.IsExceeded(err) {
 			return err
 		}
-		r.logger.Error("ошибка сохранения подтипов инструментов", zap.Error(err))
+		r.Logger.Error("ошибка сохранения подтипов инструментов", zap.Error(err))
 		return apperrors.ErrSavingData
 	}
 
 	return nil
 }
 
-func (r *Repository) GetInstrumentSubTypeId(ctx context.Context, typeId uint8, title string) (models.InstrumentSubType, error) {
+func (r *Repository) GetInstrumentSubTypeId(ctx context.Context, typeId uint8, title string) (quik.InstrumentSubType, error) {
 	//to-do добавить подсчет времени
-	res := models.InstrumentSubType{}
-	r.logger.Debug("сохранение подтипа инструмента", zap.String("title", title))
-	row := r.db.QueryRowContext(ctx, selectInstrumentSubTypeId, title, typeId)
+	res := quik.InstrumentSubType{}
+	r.Logger.Debug("сохранение подтипа инструмента", zap.String("title", title))
+	row := r.Db.QueryRowContext(ctx, selectInstrumentSubTypeId, title, typeId)
 
 	err := row.Scan(&res.SubTypeId, &res.TypeId, &res.Title)
 
 	if err != nil {
 		if shutdown.IsExceeded(err) {
-			return models.InstrumentSubType{}, err
+			return quik.InstrumentSubType{}, err
 		}
 		if errors.Is(err, sql.ErrNoRows) {
-			r.logger.Error("подтип инструмента не найден", zap.String("title", title))
-			return models.InstrumentSubType{}, apperrors.ErrNotFound
+			r.Logger.Error("подтип инструмента не найден", zap.String("title", title))
+			return quik.InstrumentSubType{}, apperrors.ErrNotFound
 		}
 
-		r.logger.Error("ошибка получения подтипа инструмента", zap.String("title", title), zap.Error(err))
-		return models.InstrumentSubType{}, err
+		r.Logger.Error("ошибка получения подтипа инструмента", zap.String("title", title), zap.Error(err))
+		return quik.InstrumentSubType{}, err
 	}
 
 	return res, nil
 }
 
-func (r *Repository) InsInstrumentSubType(ctx context.Context, typeId uint8, title string) (models.InstrumentSubType, error) {
-	res := models.InstrumentSubType{}
-	r.logger.Debug("сохранение подтипа инструмента", zap.String("title", title))
-	row := r.db.QueryRowContext(ctx, insInstrumentSubType, typeId, title)
+func (r *Repository) InsInstrumentSubType(ctx context.Context, typeId uint8, title string) (quik.InstrumentSubType, error) {
+	res := quik.InstrumentSubType{}
+	r.Logger.Debug("сохранение подтипа инструмента", zap.String("title", title))
+	row := r.Db.QueryRowContext(ctx, insInstrumentSubType, typeId, title)
 	err := row.Scan(&res.SubTypeId, &res.TypeId, &res.Title)
 
 	if err != nil {
 		if shutdown.IsExceeded(err) {
-			return models.InstrumentSubType{}, err
+			return quik.InstrumentSubType{}, err
 		}
-		r.logger.Error("ошибка сохранения подтипа инструмента", zap.String("title", title), zap.Error(err))
-		return models.InstrumentSubType{}, apperrors.ErrSavingData
+		r.Logger.Error("ошибка сохранения подтипа инструмента", zap.String("title", title), zap.Error(err))
+		return quik.InstrumentSubType{}, apperrors.ErrSavingData
 	}
 
 	return res, nil

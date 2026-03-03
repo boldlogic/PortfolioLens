@@ -81,18 +81,18 @@ ORDER BY c.load_date, c.client_code, c.ticker, c.trade_account, c.firm_code
 
 func (r *Repository) GetPortfolio(ctx context.Context) ([]models.PortfolioItem, error) {
 	var result []models.PortfolioItem
-	r.logger.Debug("получение портфеля (позиции + mv_rub)")
+	r.Logger.Debug("получение портфеля (позиции + mv_rub)")
 
-	rows, err := r.db.QueryContext(ctx, getPortfolio)
+	rows, err := r.Db.QueryContext(ctx, getPortfolio)
 	if err != nil {
 		if shutdown.IsExceeded(err) {
 			return nil, err
 		}
 		if errors.Is(err, sql.ErrNoRows) {
-			r.logger.Debug("портфель не найден")
+			r.Logger.Debug("портфель не найден")
 			return nil, apperrors.ErrNotFound
 		}
-		r.logger.Error("ошибка запроса портфеля", zap.Error(err))
+		r.Logger.Error("ошибка запроса портфеля", zap.Error(err))
 		return nil, apperrors.ErrRetrievingData
 	}
 	defer rows.Close()
@@ -118,7 +118,7 @@ func (r *Repository) GetPortfolio(ctx context.Context) ([]models.PortfolioItem, 
 			if shutdown.IsExceeded(err) {
 				return nil, err
 			}
-			r.logger.Error("ошибка при сканировании строки портфеля", zap.Error(err))
+			r.Logger.Error("ошибка при сканировании строки портфеля", zap.Error(err))
 			return nil, apperrors.ErrRetrievingData
 		}
 		if mvCurrency.Valid {
@@ -133,7 +133,7 @@ func (r *Repository) GetPortfolio(ctx context.Context) ([]models.PortfolioItem, 
 		return nil, apperrors.ErrRetrievingData
 	}
 	if len(result) == 0 {
-		r.logger.Debug("позиции портфеля не найдены")
+		r.Logger.Debug("позиции портфеля не найдены")
 		return nil, apperrors.ErrRetrievingData
 
 	}
