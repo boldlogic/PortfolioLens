@@ -76,7 +76,7 @@ func (s *Service) SaveInstrument(ctx context.Context) error {
 
 	//1. сначала инструмент
 	id, err := s.instrRepo.GetInstrumentId(ctx, instr.Ticker, instr.TradePointId)
-	s.logger.Debug("успешно получен инстуремент для котировки", zap.Int("id", id))
+	s.logger.Debug("получен инстуремент для котировки", zap.Int("id", id))
 
 	if err != nil && err != apperrors.ErrNotFound {
 		s.logger.Error("ошибка получения inst", zap.String("Ticker", instr.Ticker), zap.Error(err))
@@ -89,13 +89,13 @@ func (s *Service) SaveInstrument(ctx context.Context) error {
 
 		id, err = s.instrRepo.InsInstrument(ctx, instr)
 		if err != nil && id != 0 {
-			s.logger.Error("ошибка создания", zap.String("Ticker", *&instr.Ticker), zap.Error(err))
+			s.logger.Error("ошибка создания", zap.String("Ticker", instr.Ticker), zap.Error(err))
 
 			return err
 		}
 		err = s.instrRepo.SetInstrument(ctx, id, instrumentClass)
 		if err != nil {
-			s.logger.Error("ошибка обновления", zap.String("Ticker", *&instr.Ticker), zap.Error(err))
+			s.logger.Error("ошибка обновления", zap.String("Ticker", instr.Ticker), zap.Error(err))
 			return err
 		}
 		s.logger.Debug("успешно создан инструмент", zap.Int("id", id))

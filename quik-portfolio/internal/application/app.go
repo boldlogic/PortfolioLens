@@ -59,7 +59,10 @@ func (a *Application) Start(ctx context.Context) error {
 
 	runner := workers.NewRunner(
 		workers.NewRollForwardOtcWorker(a.svc, a.Logger, 60*time.Second),
-		workers.NewSaveInstrumentTypesFromQuotesWorker(a.svc, a.Logger, 60*time.Second),
+		workers.NewActualizeInstrumentTypesWorker(a.svc, a.Logger, 60*time.Second),
+		workers.NewActualizeInstrumentSubTypesWorker(a.svc, a.Logger, 60*time.Second),
+		workers.NewActualizeBoardsWorker(a.svc, a.Logger, 60*time.Second),
+		workers.NewSaveInstrumentsWorker(a.svc, a.Logger, 1*time.Second),
 	)
 	a.wg.Add(1)
 	go func() {
@@ -85,9 +88,6 @@ func (a *Application) Start(ctx context.Context) error {
 	}()
 	a.Logger.Debug("ok")
 
-	for i := 0; i <= 60000; i++ {
-		a.svc.SaveInstrument(ctx)
-	}
 	return nil
 }
 
