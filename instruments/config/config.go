@@ -27,6 +27,7 @@ func LoadConfig(configPath string) (*Config, error) {
 		return nil, fmt.Errorf("не удалось разобрать конфигурацию: %w", err)
 	}
 	cfg.applyDefaults()
+	cfg.Db.ApplySecretsFromEnv()
 	errs := cfg.validate()
 	if err := errors.Join(errs...); err != nil {
 		return nil, fmt.Errorf("некорректный конфиг: %w", err)

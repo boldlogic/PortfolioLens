@@ -75,7 +75,6 @@ func (r *Repository) SelectInstrumentFromNewCurrentQuote(ctx context.Context) (m
 	qi := quoteInstrument{}
 	qib := instrumentBoard{}
 
-	//r.Logger.Debug("выбор котировки без привязанного инструмента")
 	row := r.Db.QueryRowContext(ctx, selectInstrumentFromNewCurrentQuote)
 
 	err := row.Scan(&qi.InstrumentClass,
