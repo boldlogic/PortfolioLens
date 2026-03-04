@@ -1,6 +1,9 @@
 package config
 
-import "fmt"
+import (
+	"fmt"
+	"os"
+)
 
 type DBConfig struct {
 	Driver   string `yaml:"driver,omitempty" json:"driver,omitempty"`
@@ -20,7 +23,15 @@ func (db *DBConfig) ApplyDefaults() {
 	if db.Driver == "" {
 		db.Driver = "sqlserver"
 	}
+}
 
+func (db *DBConfig) ApplySecretsFromEnv() {
+	if v := os.Getenv("DB_PASSWORD"); v != "" {
+		db.Password = v
+	}
+	if v := os.Getenv("DB_USER"); v != "" {
+		db.User = v
+	}
 }
 
 func (db *DBConfig) Validate() []error {

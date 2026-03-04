@@ -2,27 +2,12 @@ package repository
 
 import (
 	"context"
-	"database/sql"
 
+	"github.com/boldlogic/PortfolioLens/instruments/internal/apperrors"
+	"github.com/boldlogic/PortfolioLens/instruments/internal/models"
 	"github.com/boldlogic/PortfolioLens/pkg/shutdown"
-	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/apperrors"
-	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/models"
 	"go.uber.org/zap"
 )
-
-type instrumentBoard struct {
-	InstrumentId int
-	BoardId      uint8
-
-	TypeId    uint8
-	SubTypeId sql.NullInt16
-
-	CurrencyId        sql.NullInt64
-	BaseCurrencyId    sql.NullInt64
-	QuoteCurrencyId   sql.NullInt64
-	CounterCurrencyId sql.NullInt64
-	IsPrimary         bool
-}
 
 const (
 	selectInstrumentBoard = `
@@ -87,7 +72,7 @@ const (
 // To-do func (r *Repository) SelectInstrumentBoards(ctx context.Context, id int) ([]models.InstrumentBoard, error) {
 
 func (r *Repository) MergeInstrumentBoard(ctx context.Context, ib models.InstrumentBoard) error {
-	_, err := r.db.ExecContext(ctx, mergeInstrumentBoard,
+	_, err := r.Db.ExecContext(ctx, mergeInstrumentBoard,
 		ib.InstrumentId,
 		ib.BoardId,
 		ib.TypeId,
@@ -101,7 +86,7 @@ func (r *Repository) MergeInstrumentBoard(ctx context.Context, ib models.Instrum
 			return err
 		}
 
-		r.logger.Error("ошибка сохранения кода класса для инструмента", zap.Int("instrument_id", ib.InstrumentId), zap.Uint8("board_id", ib.BoardId), zap.Error(err))
+		r.Logger.Error("ошибка сохранения кода класса для инструмента", zap.Int("instrument_id", ib.InstrumentId), zap.Uint8("board_id", ib.BoardId), zap.Error(err))
 		return apperrors.ErrSavingData
 	}
 	return nil

@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"strconv"
 
+	md "github.com/boldlogic/PortfolioLens/pkg/models"
 	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/apperrors"
-	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/models"
 	"github.com/go-chi/chi"
 )
 
@@ -40,7 +40,7 @@ func (h *Handler) GetTradePoint(r *http.Request) (any, string, error) {
 	return tradePointToDTO(res), "", nil
 }
 
-func tradePointsToDTO(tradepoints []models.TradePoint) []TradePointDTO {
+func tradePointsToDTO(tradepoints []md.TradePoint) []TradePointDTO {
 	var res = make([]TradePointDTO, 0, len(tradepoints))
 
 	for _, tr := range tradepoints {
@@ -50,7 +50,7 @@ func tradePointsToDTO(tradepoints []models.TradePoint) []TradePointDTO {
 
 }
 
-func tradePointToDTO(tradepoint models.TradePoint) TradePointDTO {
+func tradePointToDTO(tradepoint md.TradePoint) TradePointDTO {
 	return TradePointDTO{
 		Id:   tradepoint.Id,
 		Code: tradepoint.Code,

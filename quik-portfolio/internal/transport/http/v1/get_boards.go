@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/boldlogic/PortfolioLens/pkg/models/quik"
 	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/apperrors"
-	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/models"
 	"github.com/go-chi/chi"
 )
 
@@ -33,7 +33,7 @@ func (h *Handler) GetBoard(r *http.Request) (any, string, error) {
 	return boardToDTO(res), "", nil
 }
 
-func boardToDTO(b models.Board) BoardDTO {
+func boardToDTO(b quik.Board) BoardDTO {
 	out := BoardDTO{
 		Id:       b.Id,
 		Code:     b.Code,
@@ -48,7 +48,7 @@ func boardToDTO(b models.Board) BoardDTO {
 	return out
 }
 
-func boardsToDTO(boards []models.Board) []BoardDTO {
+func boardsToDTO(boards []quik.Board) []BoardDTO {
 	out := make([]BoardDTO, 0, len(boards))
 	for _, b := range boards {
 		out = append(out, boardToDTO(b))

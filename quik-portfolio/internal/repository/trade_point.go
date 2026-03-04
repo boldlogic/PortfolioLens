@@ -5,9 +5,9 @@ import (
 	"database/sql"
 	"errors"
 
+	md "github.com/boldlogic/PortfolioLens/pkg/models"
 	"github.com/boldlogic/PortfolioLens/pkg/shutdown"
 	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/apperrors"
-	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/models"
 	"go.uber.org/zap"
 )
 
@@ -25,30 +25,30 @@ const (
 		WHERE point_id = @p1`
 )
 
-func (r *Repository) GetTradePoints(ctx context.Context) ([]models.TradePoint, error) {
-	var result []models.TradePoint
+func (r *Repository) GetTradePoints(ctx context.Context) ([]md.TradePoint, error) {
+	var result []md.TradePoint
 
-	rows, err := r.db.QueryContext(ctx, getTradePoints)
+	rows, err := r.Db.QueryContext(ctx, getTradePoints)
 	if err != nil {
 		if shutdown.IsExceeded(err) {
 			return nil, err
 		}
 
-		r.logger.Error("не удалось получить торговые площадки", zap.Error(err))
+		r.Logger.Error("не удалось получить торговые площадки", zap.Error(err))
 
 		return nil, apperrors.ErrRetrievingData
 	}
 	defer rows.Close()
 
 	for rows.Next() {
-		row := models.TradePoint{}
+		row := md.TradePoint{}
 		err = rows.Scan(&row.Id, &row.Code, &row.Name)
 		if err != nil {
 			if shutdown.IsExceeded(err) {
 				return nil, err
 			}
 
-			r.logger.Error("ошибка чтения торговой площадки", zap.Error(err))
+			r.Logger.Error("ошибка чтения торговой площадки", zap.Error(err))
 			return nil, apperrors.ErrRetrievingData
 		}
 		result = append(result, row)
@@ -57,32 +57,32 @@ func (r *Repository) GetTradePoints(ctx context.Context) ([]models.TradePoint, e
 		return nil, apperrors.ErrRetrievingData
 	}
 
-	r.logger.Debug("количество найденных торговых площадок", zap.Int("count", len(result)))
+	r.Logger.Debug("количество найденных торговых площадок", zap.Int("count", len(result)))
 
 	if len(result) == 0 {
-		r.logger.Warn("торговые площадки не найдены")
+		r.Logger.Warn("торговые площадки не найдены")
 		return nil, apperrors.ErrNotFound
 
 	}
 	return result, nil
 }
 
-func (r *Repository) GetTradePointByID(ctx context.Context, id uint8) (models.TradePoint, error) {
-	var row models.TradePoint
-	err := r.db.QueryRowContext(ctx, getTradePointByID, id).Scan(&row.Id, &row.Code, &row.Name)
+func (r *Repository) GetTradePointByID(ctx context.Context, id uint8) (md.TradePoint, error) {
+	var row md.TradePoint
+	err := r.Db.QueryRowContext(ctx, getTradePointByID, id).Scan(&row.Id, &row.Code, &row.Name)
 	if err != nil {
 		if shutdown.IsExceeded(err) {
-			return models.TradePoint{}, err
+			return md.TradePoint{}, err
 		}
 
 		if errors.Is(err, sql.ErrNoRows) {
-			return models.TradePoint{}, apperrors.ErrNotFound
+			return md.TradePoint{}, apperrors.ErrNotFound
 		}
 
-		r.logger.Error("ошибка получения торговой площадки", zap.Uint8("id", id), zap.Error(err))
-		return models.TradePoint{}, apperrors.ErrRetrievingData
+		r.Logger.Error("ошибка получения торговой площадки", zap.Uint8("id", id), zap.Error(err))
+		return md.TradePoint{}, apperrors.ErrRetrievingData
 	}
-	r.logger.Debug("торговая площадка получена", zap.Uint8("id", id))
+	r.Logger.Debug("торговая площадка получена", zap.Uint8("id", id))
 
 	return row, nil
 }

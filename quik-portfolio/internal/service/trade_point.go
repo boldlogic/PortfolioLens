@@ -3,10 +3,10 @@ package service
 import (
 	"context"
 
-	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/models"
+	md "github.com/boldlogic/PortfolioLens/pkg/models"
 )
 
-func (s *Service) GetTradePoints(ctx context.Context) ([]models.TradePoint, error) {
+func (s *Service) GetTradePoints(ctx context.Context) ([]md.TradePoint, error) {
 	res, err := s.quikRefsRepo.GetTradePoints(ctx)
 
 	if err != nil {
@@ -16,6 +16,6 @@ func (s *Service) GetTradePoints(ctx context.Context) ([]models.TradePoint, erro
 	return res, nil
 }
 
-func (s *Service) GetTradePointByID(ctx context.Context, id uint8) (models.TradePoint, error) {
+func (s *Service) GetTradePointByID(ctx context.Context, id uint8) (md.TradePoint, error) {
 	return s.quikRefsRepo.GetTradePointByID(ctx, id)
 }

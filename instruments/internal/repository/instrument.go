@@ -5,17 +5,21 @@ import (
 	"database/sql"
 	"errors"
 
+	"github.com/boldlogic/PortfolioLens/instruments/internal/apperrors"
+	"github.com/boldlogic/PortfolioLens/instruments/internal/models"
 	"github.com/boldlogic/PortfolioLens/pkg/shutdown"
-	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/apperrors"
-	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/models"
 	"go.uber.org/zap"
 )
 
 const (
-	selInstrumentId = `
-		SELECT instrument_id
-		FROM quik.instruments
-		where ticker=@p1 and trade_point_id=@p2
+	selectInstrumentId = `
+		SELECT
+			instrument_id
+		FROM
+			quik.instruments
+		WHERE
+			ticker = @p1
+			AND trade_point_id = @p2
 	`
 	insInstrument = `
 		INSERT INTO quik.instruments (
@@ -46,27 +50,32 @@ const (
 
 func (r *Repository) GetInstrumentId(ctx context.Context, ticker string, tradePointId uint8) (int, error) {
 	var instrumentId int
-	r.logger.Debug("получение id инструмента по тикеру", zap.String("ticker", ticker), zap.Uint8("trade_point_id", tradePointId))
-	row := r.db.QueryRowContext(ctx, selInstrumentId, ticker, tradePointId)
+	row := r.Db.QueryRowContext(ctx, selectInstrumentId, ticker, tradePointId)
 	err := row.Scan(&instrumentId)
+
 	if err != nil {
 		if shutdown.IsExceeded(err) {
 			return 0, err
 		}
+
 		if errors.Is(err, sql.ErrNoRows) {
-			r.logger.Debug("инструмент не найден", zap.String("ticker", ticker), zap.Uint8("trade_point_id", tradePointId))
+			r.Logger.Debug("инструмент не найден", zap.String("ticker", ticker), zap.Uint8("trade_point_id", tradePointId))
 			return 0, apperrors.ErrNotFound
 		}
-		r.logger.Error("ошибка получения инструмента", zap.String("ticker", ticker), zap.Uint8("trade_point_id", tradePointId), zap.Error(err))
+
+		r.Logger.Error("ошибка получения инструмента", zap.String("ticker", ticker), zap.Uint8("trade_point_id", tradePointId), zap.Error(err))
 		return 0, err
 	}
+
+	r.Logger.Debug("получение id инструмента по тикеру", zap.String("ticker", ticker), zap.Uint8("trade_point_id", tradePointId), zap.Int("instrumentId", instrumentId))
+
 	return instrumentId, nil
 }
 
 func (r *Repository) InsInstrument(ctx context.Context, i models.Instrument) (int, error) {
 	var instrumentId int
-	r.logger.Debug("сохранение инструмента", zap.String("Ticker", i.Ticker))
-	row := r.db.QueryRowContext(ctx, insInstrument, i.Ticker, i.RegistrationNumber,
+	r.Logger.Debug("сохранение инструмента", zap.String("Ticker", i.Ticker))
+	row := r.Db.QueryRowContext(ctx, insInstrument, i.Ticker, i.RegistrationNumber,
 		i.FullName, i.ShortName, i.ISIN, i.FaceValue, i.MaturityDate,
 		i.CouponDuration, i.TradePointId)
 
@@ -75,7 +84,7 @@ func (r *Repository) InsInstrument(ctx context.Context, i models.Instrument) (in
 		if shutdown.IsExceeded(err) {
 			return 0, err
 		}
-		r.logger.Error("ошибка сохранения инструмента", zap.String("ticker", i.Ticker), zap.Uint8("trade_point_id", i.TradePointId), zap.Error(err))
+		r.Logger.Error("ошибка сохранения инструмента", zap.String("ticker", i.Ticker), zap.Uint8("trade_point_id", i.TradePointId), zap.Error(err))
 		return 0, apperrors.ErrSavingData
 	}
 

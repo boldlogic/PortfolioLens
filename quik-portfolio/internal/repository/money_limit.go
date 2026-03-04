@@ -48,19 +48,19 @@ ORDER BY load_date, client_code, ccy, position_code, firm_code;
 func (r *Repository) GetMoneyLimits(ctx context.Context, date time.Time) ([]models.MoneyLimit, error) {
 	var result []models.MoneyLimit
 
-	r.logger.Debug("получение текущих позиций по деньгам")
+	r.Logger.Debug("получение текущих позиций по деньгам")
 
-	rows, err := r.db.QueryContext(ctx, getMoneyLimits, date)
+	rows, err := r.Db.QueryContext(ctx, getMoneyLimits, date)
 
 	if errors.Is(err, sql.ErrNoRows) {
-		r.logger.Warn("текущие позиции по деньгам не найдены")
+		r.Logger.Warn("текущие позиции по деньгам не найдены")
 		return nil, apperrors.ErrNotFound
 	} else if err != nil {
 		if shutdown.IsExceeded(err) {
 			return nil, err
 		}
 
-		r.logger.Error("текущие позиции по деньгам не найдены", zap.Error(err))
+		r.Logger.Error("текущие позиции по деньгам не найдены", zap.Error(err))
 
 		return nil, apperrors.ErrRetrievingData
 	}
@@ -73,7 +73,7 @@ func (r *Repository) GetMoneyLimits(ctx context.Context, date time.Time) ([]mode
 			if shutdown.IsExceeded(err) {
 				return nil, err
 			}
-			r.logger.Error("ошибка при получении текущих позиций по деньгам", zap.Error(err))
+			r.Logger.Error("ошибка при получении текущих позиций по деньгам", zap.Error(err))
 
 			return nil, apperrors.ErrRetrievingData
 		}
@@ -82,10 +82,10 @@ func (r *Repository) GetMoneyLimits(ctx context.Context, date time.Time) ([]mode
 	if rows.Err() != nil {
 		return nil, apperrors.ErrRetrievingData
 	}
-	r.logger.Debug("результаты получения позиций по деньгам", zap.Int("", len(result)))
+	r.Logger.Debug("результаты получения позиций по деньгам", zap.Int("", len(result)))
 
 	if len(result) == 0 {
-		r.logger.Warn("позиции по деньгам не найдены")
+		r.Logger.Warn("позиции по деньгам не найдены")
 		return nil, apperrors.ErrNotFound
 
 	}
