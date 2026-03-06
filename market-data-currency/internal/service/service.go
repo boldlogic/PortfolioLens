@@ -26,4 +26,7 @@ type CurrencyRepository interface {
 	SelectCurrencies(ctx context.Context) ([]models.Currency, error)
 	SelectCurrency(ctx context.Context, charCode string) (models.Currency, error)
 	SelectNewCurrenciesFromCurrentQuotes(ctx context.Context) ([]models.Currency, error)
+	MergeCurrencies(ctx context.Context, currencies []models.Currency) error
+	SelectCountCurrencies(ctx context.Context) (int, error)
+	SetEmptyCurrencyNamesFromQuik(ctx context.Context) error
 }

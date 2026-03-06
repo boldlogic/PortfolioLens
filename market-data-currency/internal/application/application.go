@@ -48,6 +48,9 @@ func (a *Application) Start(ctx context.Context) error {
 	a.svc = service.NewService(ctx, a.repo, a.logger)
 
 	_ = a.svc.GetNewCurrenciesFromQuik(ctx)
+
+	_ = a.svc.GetNewCurrenciesFromLib(ctx)
+	_ = a.svc.SetEmptyCurrencyNamesFromQuik(ctx)
 	return nil
 }
 
