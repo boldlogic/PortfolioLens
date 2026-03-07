@@ -8,7 +8,7 @@ type Currency struct {
 	Name        *string
 	LatName     string
 	MinorUnits  int32
-	ExtSystemId *uint8
+	ExtSystemId *ExternalSystemID
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 }

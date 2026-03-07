@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/boldlogic/PortfolioLens/market-data-currency/internal/client"
 	"github.com/boldlogic/PortfolioLens/market-data-currency/internal/config"
 	"github.com/boldlogic/PortfolioLens/market-data-currency/internal/repository"
 	"github.com/boldlogic/PortfolioLens/market-data-currency/internal/service"
+	"github.com/boldlogic/PortfolioLens/market-data-currency/internal/service/request_catalog"
 	logger "github.com/boldlogic/PortfolioLens/pkg/logger/zap"
 	"go.uber.org/zap"
 )
@@ -44,13 +46,16 @@ func (a *Application) Start(ctx context.Context) error {
 		return fmt.Errorf("%w", err)
 	}
 	a.repo = repo
+	httpClient := client.NewClient(a.cfg.Client)
+	registry := request_catalog.NewProvider(a.cfg.Client)
 
-	a.svc = service.NewService(ctx, a.repo, a.logger)
+	a.svc = service.NewService(ctx, httpClient, a.repo, a.repo, registry, a.logger)
 
-	_ = a.svc.GetNewCurrenciesFromQuik(ctx)
-
-	_ = a.svc.GetNewCurrenciesFromLib(ctx)
-	_ = a.svc.SetEmptyCurrencyNamesFromQuik(ctx)
+	// err = a.svc.InitCurrencyDictionary(ctx)
+	// if err != nil {
+	// 	return err
+	// }
+	_ = a.svc.FetchOneNewTask(ctx)
 	return nil
 }
 
