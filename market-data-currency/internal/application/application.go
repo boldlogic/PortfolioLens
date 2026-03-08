@@ -2,15 +2,17 @@ package application
 
 import (
 	"context"
-	"fmt"
 	"sync"
+	"time"
 
 	"github.com/boldlogic/PortfolioLens/market-data-currency/internal/client"
 	"github.com/boldlogic/PortfolioLens/market-data-currency/internal/config"
 	"github.com/boldlogic/PortfolioLens/market-data-currency/internal/repository"
 	"github.com/boldlogic/PortfolioLens/market-data-currency/internal/service"
 	"github.com/boldlogic/PortfolioLens/market-data-currency/internal/service/request_catalog"
+	"github.com/boldlogic/PortfolioLens/market-data-currency/internal/workers"
 	logger "github.com/boldlogic/PortfolioLens/pkg/logger/zap"
+	"github.com/boldlogic/PortfolioLens/pkg/periodic"
 	"go.uber.org/zap"
 )
 
@@ -43,7 +45,7 @@ func (a *Application) Start(ctx context.Context) error {
 	dsn := a.cfg.Db.GetDSN()
 	repo, err := repository.NewRepository(ctx, dsn, a.logger)
 	if err != nil {
-		return fmt.Errorf("%w", err)
+		return err
 	}
 	a.repo = repo
 	httpClient := client.NewClient(a.cfg.Client)
@@ -51,11 +53,19 @@ func (a *Application) Start(ctx context.Context) error {
 
 	a.svc = service.NewService(ctx, httpClient, a.repo, a.repo, registry, a.logger)
 
-	// err = a.svc.InitCurrencyDictionary(ctx)
-	// if err != nil {
-	// 	return err
-	// }
-	_ = a.svc.FetchOneNewTask(ctx)
+	err = a.svc.InitCurrencyDictionary(ctx)
+	if err != nil {
+		return err
+	}
+
+	runner := periodic.NewRunner(
+		workers.NewFetchOneNewTaskWorker(a.svc, a.logger, 1*time.Second),
+	)
+	a.wg.Add(1)
+	go func() {
+		defer a.wg.Done()
+		runner.Run(ctx)
+	}()
 	return nil
 }
 
