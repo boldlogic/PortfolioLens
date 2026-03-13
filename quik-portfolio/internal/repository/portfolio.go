@@ -47,8 +47,8 @@ SELECT
     c.acquisition_ccy,
     c.isin,
     a.mv_currency,
-    (isnull(a.price_in_ccy, 0) * c.balance) * coalesce(f.quote_per_unit, 1)
-        + (isnull(a.accrued_int, 0) * c.balance) * coalesce(f_accr.quote_per_unit, 1),
+    (isnull(a.price_in_ccy, 0) * c.balance) * coalesce(f.rate_quote_per_base, 1)
+        + (isnull(a.accrued_int, 0) * c.balance) * coalesce(f_accr.rate_quote_per_base, 1),
     a.short_name
 FROM cte_filtered c
 OUTER APPLY (
@@ -74,8 +74,8 @@ LEFT JOIN currencies cv
     ON cv.iso_char_code = case when upper(ltrim(rtrim(isnull(a.mv_currency, '')))) in ('SUR', 'RUR', 'RUB') then 'RUB' else upper(ltrim(rtrim(a.mv_currency))) end
 LEFT JOIN currencies ca
     ON ca.iso_char_code = case when upper(ltrim(rtrim(isnull(a.accrued_currency, '')))) in ('SUR', 'RUR', 'RUB') then 'RUB' else upper(ltrim(rtrim(a.accrued_currency))) end
-LEFT JOIN fx_rates f ON f.[date] = c.load_date AND f.quote_iso_code = 643 AND f.base_iso_code = cv.iso_code
-LEFT JOIN fx_rates f_accr ON f_accr.[date] = c.load_date AND f_accr.quote_iso_code = 643 AND f_accr.base_iso_code = ca.iso_code
+LEFT JOIN fx_cbr_rates f ON f.[date] = c.load_date AND f.quote_iso_code = 643 AND f.base_iso_code = cv.iso_code
+LEFT JOIN fx_cbr_rates f_accr ON f_accr.[date] = c.load_date AND f_accr.quote_iso_code = 643 AND f_accr.base_iso_code = ca.iso_code
 ORDER BY c.load_date, c.client_code, c.ticker, c.trade_account, c.firm_code
 `
 

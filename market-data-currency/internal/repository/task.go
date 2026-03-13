@@ -6,9 +6,8 @@ import (
 	"errors"
 	"time"
 
-	"github.com/boldlogic/PortfolioLens/market-data-currency/internal/apperrors"
+	"github.com/boldlogic/PortfolioLens/pkg/models"
 	"github.com/boldlogic/PortfolioLens/pkg/models/scheduler"
-	"github.com/boldlogic/PortfolioLens/pkg/shutdown"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
@@ -34,12 +33,16 @@ const (
 	updateTaskStatus = `
 		UPDATE t
 		SET
-			t.updated_at  = SYSDATETIMEOFFSET(),
-			t.completed_at  = SYSDATETIMEOFFSET(),
-			t.status_id   = @p1,  
-			t.error=@p2
+			t.updated_at   = SYSDATETIMEOFFSET(),
+			t.completed_at = CASE
+				WHEN @p1 = (SELECT id FROM dbo.task_statuses WHERE name = N'completed')
+				THEN SYSDATETIMEOFFSET()
+				ELSE NULL
+			END,
+			t.status_id = @p1,
+			t.error     = @p2
 		FROM dbo.tasks t
-		WHERE t.id=@p3`
+		WHERE t.id = @p3`
 )
 
 type rawTask struct {
@@ -59,12 +62,12 @@ func (r *Repository) UpdateTaskStatus(ctx context.Context, id int64, newStatus s
 
 	_, err := r.Db.ExecContext(ctx, updateTaskStatus, newStatus, errMsg, id)
 	if err != nil {
-		if shutdown.IsExceeded(err) {
+		if r.isShutdown(err) {
 			return err
 		}
 		r.Logger.Error("ошибка при обновлении статуса задачи", zap.Error(err))
 
-		return apperrors.ErrSavingData
+		return models.ErrSavingData
 	}
 
 	return nil
@@ -84,16 +87,16 @@ func (r *Repository) FetchOneNewTask(ctx context.Context) (scheduler.Task, error
 		&raw.UpdatedAt,
 		&raw.Error)
 	if err != nil {
-		if shutdown.IsExceeded(err) {
+		if r.isShutdown(err) {
 			return scheduler.Task{}, err
 		}
 		if errors.Is(err, sql.ErrNoRows) {
 			r.Logger.Debug("новых задач не найдено")
-			return scheduler.Task{}, apperrors.ErrNotFound
+			return scheduler.Task{}, models.ErrNotFound
 		}
 		r.Logger.Error("ошибка при получении задачи", zap.Error(err))
 
-		return scheduler.Task{}, apperrors.ErrRetrievingData
+		return scheduler.Task{}, models.ErrRetrievingData
 	}
 
 	return rawToTask(raw), nil

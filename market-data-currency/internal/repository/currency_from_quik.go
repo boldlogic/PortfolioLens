@@ -5,9 +5,7 @@ import (
 	"database/sql"
 	"strings"
 
-	"github.com/boldlogic/PortfolioLens/market-data-currency/internal/apperrors"
 	"github.com/boldlogic/PortfolioLens/pkg/models"
-	"github.com/boldlogic/PortfolioLens/pkg/shutdown"
 	"go.uber.org/zap"
 )
 
@@ -82,11 +80,11 @@ func (r *Repository) SetEmptyCurrencyNamesFromQuik(ctx context.Context) error {
 
 	_, err := r.Db.ExecContext(ctx, setEmptyNamesFromQuik)
 	if err != nil {
-		if shutdown.IsExceeded(err) {
+		if r.isShutdown(err) {
 			return err
 		}
 		r.Logger.Error("ошибка при обновлении currency_name в currencies", zap.Error(err))
-		return apperrors.ErrSavingData
+		return models.ErrSavingData
 	}
 
 	return nil
@@ -98,12 +96,12 @@ func (r *Repository) SelectNewCurrenciesFromCurrentQuotes(ctx context.Context) (
 
 	rows, err := r.Db.QueryContext(ctx, selectNewCurrenciesFromCurrentQuotes)
 	if err != nil {
-		if shutdown.IsExceeded(err) {
+		if r.isShutdown(err) {
 			return nil, err
 		}
 		r.Logger.Error("ошибка при получении новых валют из current_quotes", zap.Error(err))
 
-		return nil, apperrors.ErrRetrievingData
+		return nil, models.ErrRetrievingData
 	}
 	defer rows.Close()
 
@@ -112,20 +110,20 @@ func (r *Repository) SelectNewCurrenciesFromCurrentQuotes(ctx context.Context) (
 		err = rows.Scan(&row.ISOCharCode,
 			&row.Name)
 		if err != nil {
-			if shutdown.IsExceeded(err) {
+			if r.isShutdown(err) {
 				return nil, err
 			}
 			r.Logger.Error("ошибка при чтении новых валют из current_quotes", zap.Error(err))
 
-			return nil, apperrors.ErrRetrievingData
+			return nil, models.ErrRetrievingData
 		}
 		rawQuoteCurrencies = append(rawQuoteCurrencies, row)
 	}
 
 	if rows.Err() != nil {
-		r.Logger.Error("ошибка при чтении новых валют из current_quotes", zap.Error(err))
+		r.Logger.Error("ошибка при чтении новых валют из current_quotes", zap.Error(rows.Err()))
 
-		return nil, apperrors.ErrRetrievingData
+		return nil, models.ErrRetrievingData
 	}
 
 	r.Logger.Info("в current_quotes найдено новых валют", zap.Int("new_currencies_count", len(rawQuoteCurrencies)))
@@ -133,11 +131,10 @@ func (r *Repository) SelectNewCurrenciesFromCurrentQuotes(ctx context.Context) (
 	if len(rawQuoteCurrencies) == 0 {
 		r.Logger.Info("новые валюты в current_quotes не найдены")
 
-		return nil, apperrors.ErrNotFound
+		return nil, models.ErrNotFound
 	}
-	res := quotesToCurrencies(rawQuoteCurrencies)
 
-	return res, nil
+	return quotesToCurrencies(rawQuoteCurrencies), nil
 }
 
 func quotesToCurrencies(qs []quoteCurrency) []models.Currency {

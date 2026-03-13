@@ -54,17 +54,29 @@ type Task struct {
 	ScheduledAt time.Time
 	Error       *string
 	CompletedAt *time.Time
-
-	UpdatedAt time.Time
+	UpdatedAt   time.Time
 }
+
+const (
+	ActionCodeCbrCurrencyList    = "currency.cb.fetch.currency_list"
+	ActionCodeCbrRatesToday      = "currency.cb.fetch.rates_today"
+	ActionCodeCbrHistoricalRates = "currency.cb.fetch.historical_rates"
+)
 
 type Action struct {
 	Id   uint8
-	Code string //Пример: currency.cb.fetch.currency_list
-	Name string //Пример: Получение справочника валют из ЦБ по www.cbr.ru/scripts/XML_valFull.asp
+	Code string
+	Name string
 }
 
 type TaskStatus struct {
 	Id   TaskStatusID
 	Name string
+}
+
+type TaskParam struct {
+	TaskId  int64
+	ParamId int
+	Code    string
+	Value   string
 }

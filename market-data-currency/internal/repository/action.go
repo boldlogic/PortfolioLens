@@ -5,9 +5,8 @@ import (
 	"database/sql"
 	"errors"
 
-	"github.com/boldlogic/PortfolioLens/market-data-currency/internal/apperrors"
+	"github.com/boldlogic/PortfolioLens/pkg/models"
 	"github.com/boldlogic/PortfolioLens/pkg/models/scheduler"
-	"github.com/boldlogic/PortfolioLens/pkg/shutdown"
 	"go.uber.org/zap"
 )
 
@@ -26,16 +25,16 @@ func (r *Repository) SelectAction(ctx context.Context, id uint8) (scheduler.Acti
 	row := r.Db.QueryRowContext(ctx, selectActionByCode, id)
 	err := row.Scan(&a.Id, &a.Code, &a.Name)
 	if err != nil {
-		if shutdown.IsExceeded(err) {
+		if r.isShutdown(err) {
 			return scheduler.Action{}, err
 		}
 		if errors.Is(err, sql.ErrNoRows) {
-			r.Logger.Debug("не найдено действие")
-			return scheduler.Action{}, apperrors.ErrNotFound
+			r.Logger.Debug("не найдено действие", zap.Uint8("id", id))
+			return scheduler.Action{}, models.ErrNotFound
 		}
-		r.Logger.Error("ошибка при получении действия", zap.Error(err))
+		r.Logger.Error("ошибка при получении действия", zap.Uint8("id", id), zap.Error(err))
 
-		return scheduler.Action{}, apperrors.ErrRetrievingData
+		return scheduler.Action{}, models.ErrRetrievingData
 	}
 	return a, nil
 

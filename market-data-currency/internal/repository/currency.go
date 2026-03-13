@@ -5,9 +5,7 @@ import (
 	"database/sql"
 	"errors"
 
-	"github.com/boldlogic/PortfolioLens/market-data-currency/internal/apperrors"
 	"github.com/boldlogic/PortfolioLens/pkg/models"
-	"github.com/boldlogic/PortfolioLens/pkg/shutdown"
 	"go.uber.org/zap"
 )
 
@@ -60,7 +58,8 @@ const (
 			tgt.currency_name = src.currency_name,
 			tgt.lat_name = src.lat_name,
 			tgt.minor_units = src.minor_units,
-			tgt.updated_at = GETDATE()
+			tgt.updated_at = SYSDATETIMEOFFSET(),
+			tgt.ext_system_id=src.ext_system_id
 		WHEN NOT MATCHED BY TARGET
 		THEN INSERT (
 			iso_code,
@@ -77,7 +76,7 @@ const (
 			src.currency_name,
 			src.lat_name,
 			src.minor_units,
-			GETDATE(),
+			SYSDATETIMEOFFSET(),
 			src.ext_system_id
 		);`
 )
@@ -89,7 +88,7 @@ func (r *Repository) SelectCountCurrencies(ctx context.Context) (int, error) {
 	err := row.Scan(&res)
 
 	if err != nil {
-		if shutdown.IsExceeded(err) {
+		if r.isShutdown(err) {
 			return 0, err
 		}
 		r.Logger.Error("ошибка при получении количества валют в справочнике currencies", zap.Error(err))
@@ -114,12 +113,11 @@ func (r *Repository) MergeCurrencies(ctx context.Context, currencies []models.Cu
 			ccy.ExtSystemId,
 		)
 		if err != nil {
-			if shutdown.IsExceeded(err) {
+			if r.isShutdown(err) {
 				return err
 			}
-
 			r.Logger.Error("ошибка сохранения валюты", zap.Int16("iso_code", ccy.ISOCode), zap.Error(err))
-			return apperrors.ErrSavingData
+			return models.ErrSavingData
 		}
 	}
 
@@ -134,15 +132,15 @@ func (r *Repository) SelectCurrency(ctx context.Context, charCode string) (model
 	err := row.Scan(&res.ISOCode, &res.ISOCharCode, &res.Name, &res.LatName, &res.MinorUnits, &res.CreatedAt, &res.UpdatedAt)
 
 	if err != nil {
-		if shutdown.IsExceeded(err) {
+		if r.isShutdown(err) {
 			return models.Currency{}, err
 		}
 		if errors.Is(err, sql.ErrNoRows) {
-			return models.Currency{}, apperrors.ErrNotFound
+			return models.Currency{}, models.ErrNotFound
 		}
 		r.Logger.Error("ошибка при получении валюты из справочника currencies", zap.String("iso_char_code", charCode), zap.Error(err))
 
-		return models.Currency{}, err
+		return models.Currency{}, models.ErrRetrievingData
 	}
 	return res, nil
 }
@@ -152,12 +150,11 @@ func (r *Repository) SelectCurrencies(ctx context.Context) ([]models.Currency, e
 
 	rows, err := r.Db.QueryContext(ctx, selectCurrencies)
 	if err != nil {
-		if shutdown.IsExceeded(err) {
+		if r.isShutdown(err) {
 			return nil, err
 		}
 		r.Logger.Error("ошибка при получении валют из справочника currencies", zap.Error(err))
-
-		return nil, apperrors.ErrRetrievingData
+		return nil, models.ErrRetrievingData
 	}
 	defer rows.Close()
 
@@ -171,20 +168,19 @@ func (r *Repository) SelectCurrencies(ctx context.Context) ([]models.Currency, e
 			&row.CreatedAt,
 			&row.UpdatedAt)
 		if err != nil {
-			if shutdown.IsExceeded(err) {
+			if r.isShutdown(err) {
 				return nil, err
 			}
 			r.Logger.Error("ошибка при чтении валюты из справочника currencies", zap.Error(err))
-
-			return nil, apperrors.ErrRetrievingData
+			return nil, models.ErrRetrievingData
 		}
 		res = append(res, row)
 	}
 
 	if rows.Err() != nil {
-		r.Logger.Error("ошибка при получении валют из справочника currencies", zap.Error(err))
+		r.Logger.Error("ошибка при получении валют из справочника", zap.Error(rows.Err()))
 
-		return nil, apperrors.ErrRetrievingData
+		return nil, models.ErrRetrievingData
 	}
 	return res, nil
 }

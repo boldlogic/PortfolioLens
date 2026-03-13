@@ -1,4 +1,3 @@
-// Package dbzap предоставляет подключение к БД и логгер для встраивания в доменные репозитории.
 package dbzap
 
 import (
@@ -6,18 +5,15 @@ import (
 	"database/sql"
 	"fmt"
 
-	_ "github.com/microsoft/go-mssqldb" // драйвер MS SQL Server
+	_ "github.com/microsoft/go-mssqldb"
 	"go.uber.org/zap"
 )
 
-// Pool — подключение к БД и логгер. Встраивается в репозитории (например, quik-portfolio).
-// Поля экспортируются, чтобы при встраивании использовать r.Db и r.Logger без геттеров.
 type Pool struct {
 	Db     *sql.DB
 	Logger *zap.Logger
 }
 
-// New создаёт пул подключения и проверяет его через Ping.
 func New(ctx context.Context, dsn string, logger *zap.Logger) (*Pool, error) {
 	db, err := openDB(ctx, dsn)
 	if err != nil {

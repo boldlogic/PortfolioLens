@@ -2,10 +2,10 @@ package repository
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 
-	"github.com/boldlogic/PortfolioLens/market-data-currency/internal/apperrors"
 	"github.com/boldlogic/PortfolioLens/pkg/models"
-	"github.com/boldlogic/PortfolioLens/pkg/shutdown"
 	"go.uber.org/zap"
 )
 
@@ -41,15 +41,53 @@ func (r *Repository) MergeExternalCodes(ctx context.Context, codes []models.Exte
 			c.IntId,
 		)
 		if err != nil {
-			if shutdown.IsExceeded(err) {
+			if r.isShutdown(err) {
 				return err
 			}
 			r.Logger.Error("ошибка сохранения external_code",
 				zap.String("ext_code", c.Code),
 				zap.Uint8("ext_system_id", uint8(c.ExternalSystemId)),
 				zap.Error(err))
-			return apperrors.ErrSavingData
+			return models.ErrSavingData
 		}
 	}
 	return nil
+}
+
+const selectExternalCodeByCurrency = `
+	SELECT ec.ext_code
+	FROM dbo.currencies c
+	JOIN dbo.external_codes ec
+		ON ec.internal_id     = c.iso_code
+		AND ec.ext_code_type_id = @p2
+		AND ec.ext_system_id   = (
+			SELECT u.external_system_id
+			FROM dbo.endpoints e
+			JOIN dbo.external_system_urls u ON u.id = e.external_system_url_id
+			JOIN dbo.actions a              ON a.endpoint_id = e.id
+			WHERE a.id = @p3
+		)
+	WHERE c.iso_char_code = @p1`
+
+func (r *Repository) SelectExternalCodeByCurrency(ctx context.Context, isoCharCode string, extCodeTypeId uint8, actionId uint8) (string, error) {
+	var code string
+	row := r.Db.QueryRowContext(ctx, selectExternalCodeByCurrency, isoCharCode, extCodeTypeId, actionId)
+	err := row.Scan(&code)
+	if err != nil {
+		if r.isShutdown(err) {
+			return "", err
+		}
+		if errors.Is(err, sql.ErrNoRows) {
+			r.Logger.Debug("внешний код не найден",
+				zap.String("iso_char_code", isoCharCode),
+				zap.Uint8("ext_code_type_id", extCodeTypeId))
+			return "", models.ErrNotFound
+		}
+		r.Logger.Error("ошибка при получении внешнего кода",
+			zap.String("iso_char_code", isoCharCode),
+			zap.Uint8("ext_code_type_id", extCodeTypeId),
+			zap.Error(err))
+		return "", models.ErrRetrievingData
+	}
+	return code, nil
 }

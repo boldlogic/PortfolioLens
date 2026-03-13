@@ -5,14 +5,19 @@ import (
 	"sync"
 	"time"
 
+	"github.com/boldlogic/PortfolioLens/market-data-currency/internal/cbr"
 	"github.com/boldlogic/PortfolioLens/market-data-currency/internal/client"
 	"github.com/boldlogic/PortfolioLens/market-data-currency/internal/config"
 	"github.com/boldlogic/PortfolioLens/market-data-currency/internal/repository"
 	"github.com/boldlogic/PortfolioLens/market-data-currency/internal/service"
-	"github.com/boldlogic/PortfolioLens/market-data-currency/internal/service/request_catalog"
+	currencyserver "github.com/boldlogic/PortfolioLens/market-data-currency/internal/transport/http"
+	v1 "github.com/boldlogic/PortfolioLens/market-data-currency/internal/transport/http/v1"
 	"github.com/boldlogic/PortfolioLens/market-data-currency/internal/workers"
 	logger "github.com/boldlogic/PortfolioLens/pkg/logger/zap"
 	"github.com/boldlogic/PortfolioLens/pkg/periodic"
+	"github.com/boldlogic/PortfolioLens/pkg/transport/httpclient"
+	"github.com/boldlogic/PortfolioLens/pkg/transport/httpserver"
+	"github.com/boldlogic/PortfolioLens/pkg/transport/httpserver/handler"
 	"go.uber.org/zap"
 )
 
@@ -21,6 +26,7 @@ type Application struct {
 	logger  *zap.Logger
 	svc     *service.Service
 	repo    *repository.Repository
+	server  *httpserver.Server
 	errChan chan error
 	wg      sync.WaitGroup
 }
@@ -28,44 +34,62 @@ type Application struct {
 const defaultConfigPath = "market-data-currency/internal/configs/config.yaml"
 
 func New() (*Application, error) {
-	config, err := config.LoadConfig(defaultConfigPath)
+	cfg, err := config.LoadConfig(defaultConfigPath)
 	if err != nil {
 		return &Application{}, err
 	}
-	log := logger.New(config.Log)
+	log := logger.New(cfg.Log)
 	return &Application{
-		cfg:     config,
+		cfg:     cfg,
 		logger:  log,
 		errChan: make(chan error, 8),
 	}, nil
 }
 
 func (a *Application) Start(ctx context.Context) error {
-
 	dsn := a.cfg.Db.GetDSN()
 	repo, err := repository.NewRepository(ctx, dsn, a.logger)
 	if err != nil {
 		return err
 	}
 	a.repo = repo
-	httpClient := client.NewClient(a.cfg.Client)
-	registry := request_catalog.NewProvider(a.cfg.Client)
 
-	a.svc = service.NewService(ctx, httpClient, a.repo, a.repo, registry, a.logger)
+	commonClient := httpclient.NewClient(a.cfg.Client)
 
-	err = a.svc.InitCurrencyDictionary(ctx)
-	if err != nil {
+	httpClient := client.NewClient(commonClient, a.logger)
+
+	cbrParser := cbr.NewParser(a.logger)
+
+	a.svc = service.NewService(httpClient, cbrParser, a.repo, a.repo, a.logger)
+
+	if err = a.svc.InitCurrencyDictionary(ctx); err != nil {
 		return err
 	}
 
 	runner := periodic.NewRunner(
 		workers.NewFetchOneNewTaskWorker(a.svc, a.logger, 1*time.Second),
+		workers.NewQuikFxCBRRatesSyncWorker(a.svc, a.logger, 60*time.Second),
 	)
 	a.wg.Add(1)
 	go func() {
 		defer a.wg.Done()
 		runner.Run(ctx)
 	}()
+
+	commonHandler := handler.NewHandler()
+
+	handler := v1.NewHandler(commonHandler, a.svc, a.logger)
+	router := currencyserver.NewRouter(handler, a.logger, &a.cfg.Server)
+	a.server = httpserver.NewServer(router.CommonRouter.Mux, a.cfg.Server)
+
+	a.wg.Add(1)
+	go func() {
+		defer a.wg.Done()
+		if err := a.server.ListenAndServe(); err != nil {
+			a.logger.Error("HTTP-сервер завершился с ошибкой", zap.Error(err))
+		}
+	}()
+
 	return nil
 }
 
@@ -73,12 +97,10 @@ func (a *Application) Wait(ctx context.Context, cancel context.CancelFunc) error
 	var appErr error
 
 	errWg := sync.WaitGroup{}
-
 	errWg.Add(1)
 
 	go func() {
 		defer errWg.Done()
-
 		for err := range a.errChan {
 			cancel()
 			appErr = err
@@ -86,6 +108,10 @@ func (a *Application) Wait(ctx context.Context, cancel context.CancelFunc) error
 	}()
 
 	<-ctx.Done()
+
+	if a.server != nil {
+		_ = a.server.Shutdown(context.Background())
+	}
 
 	a.wg.Wait()
 	close(a.errChan)

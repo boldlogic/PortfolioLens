@@ -4,13 +4,12 @@ import (
 	"context"
 
 	"github.com/JohannesJHN/iso4217"
-	"github.com/boldlogic/PortfolioLens/market-data-currency/internal/service/cbr"
 	"github.com/boldlogic/PortfolioLens/pkg/models"
 	"go.uber.org/zap"
 )
 
-func (s *Service) GetCbrCurrencies(ctx context.Context, bdy []byte) error {
-	currencies, extCodes, err := cbr.ParseCurrenciesXML(bdy, s.logger)
+func (s *Service) SaveCbrCurrencies(ctx context.Context, bdy []byte) error {
+	currencies, extCodes, err := s.cbrParser.ParseCurrenciesXML(bdy)
 	if err != nil {
 		return err
 	}
@@ -25,9 +24,8 @@ func (s *Service) GetCbrCurrencies(ctx context.Context, bdy []byte) error {
 	return nil
 }
 
-func (s *Service) SetEmptyCurrencyNamesFromQuik(ctx context.Context) error {
+func (s *Service) setEmptyCurrencyNamesFromQuik(ctx context.Context) error {
 	return s.currencyRepo.SetEmptyCurrencyNamesFromQuik(ctx)
-
 }
 
 func (s *Service) InitCurrencyDictionary(ctx context.Context) error {
@@ -35,7 +33,7 @@ func (s *Service) InitCurrencyDictionary(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	return s.currencyRepo.SetEmptyCurrencyNamesFromQuik(ctx)
+	return s.setEmptyCurrencyNamesFromQuik(ctx)
 }
 
 func (s *Service) getNewCurrenciesFromLib(ctx context.Context) error {
