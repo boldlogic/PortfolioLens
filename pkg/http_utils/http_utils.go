@@ -1,3 +1,5 @@
+//TO-DO Удалить файл при правках Quik Portfolio - использует только он
+
 package httputils
 
 import (

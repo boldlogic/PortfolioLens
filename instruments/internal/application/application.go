@@ -6,11 +6,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/boldlogic/PortfolioLens/instruments/config"
+	"github.com/boldlogic/PortfolioLens/instruments/internal/config"
 	"github.com/boldlogic/PortfolioLens/instruments/internal/repository"
 	"github.com/boldlogic/PortfolioLens/instruments/internal/service"
 	"github.com/boldlogic/PortfolioLens/instruments/workers"
 	logger "github.com/boldlogic/PortfolioLens/pkg/logger/zap"
+	"github.com/boldlogic/PortfolioLens/pkg/periodic"
 	"go.uber.org/zap"
 )
 
@@ -53,7 +54,7 @@ func (a *Application) Start(ctx context.Context) error {
 
 	a.svc = service.NewService(ctx, a.repo, a.Logger)
 
-	runner := workers.NewRunner(
+	runner := periodic.NewRunner(
 		workers.NewSaveInstrumentsWorker(a.svc, a.Logger, 1*time.Second),
 	)
 	a.wg.Add(1)

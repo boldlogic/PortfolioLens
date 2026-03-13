@@ -1,15 +1,18 @@
 package models
 
-import "time"
+import (
+	"time"
+
+	"github.com/shopspring/decimal"
+)
 
 type FxRate struct {
-	Date             time.Time `gorm:"type:date;primaryKey;not null"`
-	QuoteISOCode     int       `gorm:"primaryKey;not null"`
-	BaseISOCode      int       `gorm:"primaryKey;not null"`
-	Nominal          int
-	QuoteForNominal  float64
-	QuotePerUnit     float64
-	BasePerQuoteUnit float64
+	Date             time.Time
+	QuoteISOCode     int
+	BaseISOCode      int
+	RateQuotePerBase decimal.Decimal
+	RateBasePerQuote decimal.Decimal
+	ExtSystemId      *ExternalSystemID
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
 }
