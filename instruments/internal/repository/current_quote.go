@@ -5,14 +5,14 @@ import (
 	"database/sql"
 	"errors"
 
-	"github.com/boldlogic/PortfolioLens/instruments/internal/apperrors"
 	"github.com/boldlogic/PortfolioLens/instruments/internal/models"
+	md "github.com/boldlogic/PortfolioLens/pkg/models"
 	"github.com/boldlogic/PortfolioLens/pkg/shutdown"
 	"go.uber.org/zap"
 )
 
 const (
-	//Поклассовый перебор, для дальнейшей оптимизации (важно зафиксировать метрики перед этим)
+	// Поклассовый перебор, для дальнейшей оптимизации (важно зафиксировать метрики перед этим)
 	selectInstrumentFromNewCurrentQuote = `
 		SELECT TOP (1)
 			q.instrument_class,
@@ -58,14 +58,13 @@ func (r *Repository) SetInstrument(ctx context.Context, id int, ic string) error
 		if shutdown.IsExceeded(err) {
 			return err
 		}
-
 		r.Logger.Error("ошибка сохранения инструмента", zap.String("instrument_class", ic), zap.Error(err))
-		return apperrors.ErrSavingData
+		return md.ErrSavingData
 	}
 	affected, _ := result.RowsAffected()
 	if affected == 0 {
 		r.Logger.Warn("котировка не найдена, обновление не выполнено", zap.String("instrument_class", ic))
-		return apperrors.ErrNotFound
+		return md.ErrNotFound
 	}
 	r.Logger.Debug("инструмент обновлен в котировках", zap.String("instrument_class", ic), zap.Int("instrument_id", id))
 	return nil
@@ -101,15 +100,11 @@ func (r *Repository) SelectInstrumentFromNewCurrentQuote(ctx context.Context) (m
 		}
 		if errors.Is(err, sql.ErrNoRows) {
 			r.Logger.Debug("котировок без инструмента не найдено")
-			return models.Instrument{}, models.InstrumentBoard{}, "", apperrors.ErrNotFound
+			return models.Instrument{}, models.InstrumentBoard{}, "", md.ErrNotFound
 		}
 		r.Logger.Error("ошибка получения котировки", zap.Error(err))
 		return models.Instrument{}, models.InstrumentBoard{}, "", err
 	}
 
-	i := qi.convertToInstrument()
-
-	ib := qib.convertToInstrumentBoard()
-
-	return i, ib, qi.InstrumentClass, nil
+	return qi.convertToInstrument(), qib.convertToInstrumentBoard(), qi.InstrumentClass, nil
 }

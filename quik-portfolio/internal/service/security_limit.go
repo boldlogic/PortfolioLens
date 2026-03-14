@@ -4,31 +4,22 @@ import (
 	"context"
 	"time"
 
-	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/apperrors"
-	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/models"
+	"github.com/boldlogic/PortfolioLens/pkg/models"
+	qmodels "github.com/boldlogic/PortfolioLens/quik-portfolio/internal/models"
 )
 
-func (s *Service) GetSL(ctx context.Context, date time.Time) ([]models.SecurityLimit, error) {
-	sl, err := s.limitsRepo.GetSecurityLimits(ctx, date)
-	if err != nil {
-		return nil, err
-	}
-	return sl, nil
+func (s *Service) GetSL(ctx context.Context, date time.Time) ([]qmodels.SecurityLimit, error) {
+	return s.repo.GetSecurityLimits(ctx, date)
 }
 
-func (s *Service) GetSLOtc(ctx context.Context, date time.Time) ([]models.SecurityLimit, error) {
-	sl, err := s.limitsRepo.GetSecurityLimitsOtc(ctx, date)
-	if err != nil {
-		return nil, err
-	}
-	return sl, nil
+func (s *Service) GetSLOtc(ctx context.Context, date time.Time) ([]qmodels.SecurityLimit, error) {
+	return s.repo.GetSecurityLimitsOtc(ctx, date)
 }
 
-func (s *Service) SaveSL(ctx context.Context, sec models.SecurityLimit) error {
-
-	firm, err := s.limitsRepo.GetFirmByName(ctx, sec.FirmName)
+func (s *Service) SaveSL(ctx context.Context, sec qmodels.SecurityLimit) error {
+	firm, err := s.repo.GetFirmByName(ctx, sec.FirmName)
 	if err != nil {
-		return apperrors.ErrSavingData
+		return err
 	}
 	sec.FirmCode = firm.Code
 
@@ -36,40 +27,31 @@ func (s *Service) SaveSL(ctx context.Context, sec models.SecurityLimit) error {
 		return err
 	}
 
-	err = s.limitsRepo.SaveSecurityLimit(ctx, sec)
-	if err != nil {
-		return err
-	}
-	return nil
+	return s.repo.SaveSecurityLimit(ctx, sec)
 }
 
-func (s *Service) SaveSLOtc(ctx context.Context, sec models.SecurityLimit) error {
-	firm, err := s.limitsRepo.GetFirmByName(ctx, sec.FirmName)
+func (s *Service) SaveSLOtc(ctx context.Context, sec qmodels.SecurityLimit) error {
+	firm, err := s.repo.GetFirmByName(ctx, sec.FirmName)
 	if err != nil {
-		return apperrors.ErrSavingData
+		return err
 	}
 	sec.FirmCode = firm.Code
 	sec.TradeAccount = "OTC"
 	sec.SettleCode = "Tx"
-	err = s.limitsRepo.SaveSecurityLimitOtc(ctx, sec)
-	if err != nil {
-		return err
-	}
-	return nil
+	return s.repo.SaveSecurityLimitOtc(ctx, sec)
 }
 
 func checkSettleCode(code string) error {
 	allowedSettle := map[string]bool{"T0": true, "T1": true, "T2": true, "Tx": true}
 	if !allowedSettle[code] {
-		return apperrors.ErrSettleCode
+		return models.ErrBusinessValidation
 	}
 	return nil
 }
 
 // DoRollForwardOtc выполняет одну итерацию переноса OTC-лимитов: с макс. даты по сегодня.
-// Цикл и интервал — в воркере, сервис только бизнес-логика.
 func (s *Service) DoRollForwardOtc(ctx context.Context) error {
-	date, err := s.limitsRepo.GetSecurityLimitsOtcMaxDate(ctx)
+	date, err := s.repo.GetSecurityLimitsOtcMaxDate(ctx)
 	if err != nil {
 		return err
 	}
@@ -83,8 +65,8 @@ func (s *Service) DoRollForwardOtc(ctx context.Context) error {
 	if !todayOnly.After(maxDateOnly) {
 		return nil
 	}
-	if err := s.limitsRepo.RollSecurityLimitsOtcFromDateToDate(ctx, maxDateOnly, todayOnly); err != nil {
+	if err := s.repo.RollSecurityLimitsOtcFromDateToDate(ctx, maxDateOnly, todayOnly); err != nil {
 		return err
 	}
-	return s.limitsRepo.DeleteSecurityLimitsOtcBeforeDate(ctx, maxDateOnly)
+	return s.repo.DeleteSecurityLimitsOtcBeforeDate(ctx, maxDateOnly)
 }

@@ -5,9 +5,9 @@ import (
 	"database/sql"
 	"errors"
 
+	md "github.com/boldlogic/PortfolioLens/pkg/models"
 	"github.com/boldlogic/PortfolioLens/pkg/models/quik"
 	"github.com/boldlogic/PortfolioLens/pkg/shutdown"
-	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/apperrors"
 	"go.uber.org/zap"
 )
 
@@ -49,7 +49,7 @@ func (r *Repository) SyncInstrumentTypesFromQuotes(ctx context.Context) error {
 		}
 
 		r.Logger.Error("ошибка сохранения типов инструментов", zap.Error(err))
-		return apperrors.ErrSavingData
+		return md.ErrSavingData
 	}
 
 	return nil
@@ -66,16 +66,15 @@ func (r *Repository) InsInstrumentType(ctx context.Context, title string) (quik.
 			return quik.InstrumentType{}, err
 		}
 		r.Logger.Error("ошибка сохранения типа инструмента", zap.String("title", title), zap.Error(err))
-		return quik.InstrumentType{}, apperrors.ErrSavingData
+		return quik.InstrumentType{}, md.ErrSavingData
 	}
 
 	return res, nil
 }
 
 func (r *Repository) GetInstrumentTypeId(ctx context.Context, title string) (quik.InstrumentType, error) {
-	//to-do добавить подсчет времени
 	res := quik.InstrumentType{}
-	r.Logger.Debug("сохранение типа инструмента", zap.String("title", title))
+	r.Logger.Debug("получение типа инструмента", zap.String("title", title))
 	row := r.Db.QueryRowContext(ctx, selectInstrumentTypeId, title)
 
 	err := row.Scan(&res.Id, &res.Title)
@@ -85,8 +84,8 @@ func (r *Repository) GetInstrumentTypeId(ctx context.Context, title string) (qui
 			return quik.InstrumentType{}, err
 		}
 		if errors.Is(err, sql.ErrNoRows) {
-			r.Logger.Error("типа инструмента не найден", zap.String("title", title))
-			return quik.InstrumentType{}, apperrors.ErrNotFound
+			r.Logger.Error("тип инструмента не найден", zap.String("title", title))
+			return quik.InstrumentType{}, md.ErrNotFound
 		}
 
 		r.Logger.Error("ошибка получения типа инструмента", zap.String("title", title), zap.Error(err))

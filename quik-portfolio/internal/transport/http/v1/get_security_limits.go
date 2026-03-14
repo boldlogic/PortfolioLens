@@ -7,33 +7,29 @@ import (
 
 	md "github.com/boldlogic/PortfolioLens/pkg/models"
 	"github.com/boldlogic/PortfolioLens/pkg/utils"
-	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/apperrors"
-	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/models"
+	qmodels "github.com/boldlogic/PortfolioLens/quik-portfolio/internal/models"
 	"go.uber.org/zap"
 )
 
 func (h *Handler) GetSecurityLimits(r *http.Request) (any, string, error) {
 	ctx := r.Context()
-
 	date, err := h.readGetLimitsRequest(r)
 	if err != nil {
-		return nil, err.Error(), apperrors.ErrValidation
+		return nil, err.Error(), md.ErrValidation
 	}
 	sls, err := h.service.GetSL(ctx, *date)
-	h.logger.Debug("", zap.Error(err), zap.Any("lim", sls))
+	h.logger.Debug("запрос позиций по бумагам", zap.Error(err), zap.Any("count", len(sls)))
 
 	if err != nil {
-		if errors.Is(err, apperrors.ErrNotFound) {
+		if errors.Is(err, md.ErrNotFound) {
 			return nil, fmt.Sprintf("позиции по бумагам за %s не найдены", date.Format(utils.DateFormat)), err
 		}
 		return nil, "", err
-
 	}
-
 	return convertSecurityLimit(sls), "", nil
 }
 
-func convertSecurityLimit(sls []models.SecurityLimit) []securityLimitDTO {
+func convertSecurityLimit(sls []qmodels.SecurityLimit) []securityLimitDTO {
 	var res []securityLimitDTO
 	for _, sl := range sls {
 		dto := securityLimitDTO{

@@ -2,13 +2,12 @@ package repository
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"time"
 
+	"github.com/boldlogic/PortfolioLens/pkg/models"
 	"github.com/boldlogic/PortfolioLens/pkg/shutdown"
-	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/apperrors"
-	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/models"
+	qmodels "github.com/boldlogic/PortfolioLens/quik-portfolio/internal/models"
 	mssql "github.com/microsoft/go-mssqldb"
 	"go.uber.org/zap"
 )
@@ -26,7 +25,6 @@ INSERT INTO quik.security_limits
            ,balance
            ,acquisition_ccy
            ,isin)
-		  -- output inserted.*
      VALUES (@p1, @p2, @p3, @p4, @p5, @p6,@p7,@p8,@p9, @p10)	
 	`
 	getSecurityLimits = `
@@ -42,7 +40,6 @@ INSERT INTO quik.security_limits
         li.balance,
         li.acquisition_ccy,
         li.isin,
-     --   li.ts,
         settle_max = MAX(li.settle_code) OVER (
             PARTITION BY li.load_date, li.client_code, li.ticker, li.trade_account, li.firm_code
         )
@@ -55,21 +52,17 @@ SELECT
     ticker,
     trade_account,
     firm_code,
-    --settle_code,
     firm_name,
     balance,
     acquisition_ccy,
     isin
-   -- ts
 FROM cte
 WHERE settle_code = settle_max and balance<>0
 ORDER BY load_date, client_code, ticker, trade_account, firm_code;
-
 `
 )
 
-func (r *Repository) SaveSecurityLimit(ctx context.Context, s models.SecurityLimit) error {
-
+func (r *Repository) SaveSecurityLimit(ctx context.Context, s qmodels.SecurityLimit) error {
 	_, err := r.Db.ExecContext(ctx, insertSecurityLimit,
 		s.LoadDate, s.ClientCode, s.Ticker, s.TradeAccount, s.SettleCode,
 		s.FirmCode, s.FirmName, s.Balance, s.AcquisitionCcy, s.ISIN)
@@ -77,74 +70,61 @@ func (r *Repository) SaveSecurityLimit(ctx context.Context, s models.SecurityLim
 		if shutdown.IsExceeded(err) {
 			return err
 		}
-
 		var msErr mssql.Error
 		if errors.As(err, &msErr) && (msErr.Number == 2627 || msErr.Number == 2601) {
-			r.Logger.Warn("лимит по бумаге уже существует", zap.Time("LoadDate", s.LoadDate), zap.String("ClientCode", s.ClientCode), zap.String("Ticker", s.Ticker),
-				zap.String("TradeAccount", s.TradeAccount), zap.String("SettleCode", s.SettleCode), zap.String("SettleCode", s.SettleCode), zap.String("FirmCode", s.FirmCode))
-			return apperrors.ErrConflict
+			r.Logger.Warn("лимит по бумаге уже существует",
+				zap.Time("LoadDate", s.LoadDate), zap.String("ClientCode", s.ClientCode),
+				zap.String("Ticker", s.Ticker), zap.String("TradeAccount", s.TradeAccount),
+				zap.String("SettleCode", s.SettleCode), zap.String("FirmCode", s.FirmCode))
+			return models.ErrConflict
 		}
-
-		r.Logger.Error("ошибка при создании лимита по бумаге", zap.Time("LoadDate", s.LoadDate), zap.String("ClientCode", s.ClientCode), zap.String("Ticker", s.Ticker),
-			zap.String("TradeAccount", s.TradeAccount), zap.String("SettleCode", s.SettleCode), zap.String("SettleCode", s.SettleCode), zap.String("FirmCode", s.FirmCode), zap.Error(err))
-		return apperrors.ErrSavingData
+		r.Logger.Error("ошибка при создании лимита по бумаге",
+			zap.Time("LoadDate", s.LoadDate), zap.String("ClientCode", s.ClientCode),
+			zap.String("Ticker", s.Ticker), zap.Error(err))
+		return models.ErrSavingData
 	}
-
-	r.Logger.Debug("лимит по бумаге успешно сохранен", zap.Time("LoadDate", s.LoadDate), zap.String("ClientCode", s.ClientCode), zap.String("Ticker", s.Ticker),
-		zap.String("TradeAccount", s.TradeAccount), zap.String("SettleCode", s.SettleCode), zap.String("SettleCode", s.SettleCode), zap.String("FirmCode", s.FirmCode))
+	r.Logger.Debug("лимит по бумаге успешно сохранен",
+		zap.Time("LoadDate", s.LoadDate), zap.String("ClientCode", s.ClientCode), zap.String("Ticker", s.Ticker))
 	return nil
 }
 
-func (r *Repository) GetSecurityLimits(ctx context.Context, date time.Time) ([]models.SecurityLimit, error) {
-	var result []models.SecurityLimit
+func (r *Repository) GetSecurityLimits(ctx context.Context, date time.Time) ([]qmodels.SecurityLimit, error) {
+	var result []qmodels.SecurityLimit
 
 	rows, err := r.Db.QueryContext(ctx, getSecurityLimits, date)
-	r.Logger.Debug("", zap.Error(err))
+	r.Logger.Debug("запрос позиций по бумагам", zap.Error(err))
 
 	if err != nil {
 		if shutdown.IsExceeded(err) {
 			return nil, err
 		}
-		if errors.Is(err, sql.ErrNoRows) {
-			r.Logger.Debug("позиции по бумагам не найдены")
-			return nil, apperrors.ErrNotFound
-		}
 		r.Logger.Error("ошибка запроса позиций по бумагам", zap.Error(err))
-		return nil, apperrors.ErrRetrievingData
+		return nil, models.ErrRetrievingData
 	}
 	defer rows.Close()
 
 	for rows.Next() {
-		row := models.SecurityLimit{}
+		row := qmodels.SecurityLimit{}
 		err = rows.Scan(
-			&row.LoadDate,
-			&row.ClientCode,
-			&row.Ticker,
-			&row.TradeAccount,
-			&row.FirmCode,
-			&row.FirmName,
-			&row.Balance,
-			&row.AcquisitionCcy,
-			&row.ISIN,
+			&row.LoadDate, &row.ClientCode, &row.Ticker, &row.TradeAccount,
+			&row.FirmCode, &row.FirmName, &row.Balance, &row.AcquisitionCcy, &row.ISIN,
 		)
 		if err != nil {
 			if shutdown.IsExceeded(err) {
 				return nil, err
 			}
 			r.Logger.Error("ошибка при сканировании позиции по бумагам", zap.Error(err))
-			return nil, apperrors.ErrRetrievingData
+			return nil, models.ErrRetrievingData
 		}
 		result = append(result, row)
 	}
 	if rows.Err() != nil {
-		return nil, apperrors.ErrRetrievingData
+		return nil, models.ErrRetrievingData
 	}
-	r.Logger.Debug("результаты получения позиций по бумагам", zap.Int("", len(result)))
+	r.Logger.Debug("результаты получения позиций по бумагам", zap.Int("count", len(result)))
 	if len(result) == 0 {
 		r.Logger.Debug("позиции по бумагам не найдены")
-		return nil, apperrors.ErrNotFound
-
+		return nil, models.ErrNotFound
 	}
-
 	return result, nil
 }

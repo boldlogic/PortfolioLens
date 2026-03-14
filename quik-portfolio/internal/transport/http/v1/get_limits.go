@@ -7,40 +7,33 @@ import (
 
 	md "github.com/boldlogic/PortfolioLens/pkg/models"
 	"github.com/boldlogic/PortfolioLens/pkg/utils"
-	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/apperrors"
 )
 
 func (h *Handler) readGetLimitsRequest(r *http.Request) (*time.Time, error) {
-	var date time.Time
 	dateReq := r.URL.Query().Get("date")
 	if dateReq != "" {
 		parsed, err := utils.ParseDate(dateReq)
 		if err != nil {
-			return nil, fmt.Errorf("Некорректный формат date. Ожидается YYYY-MM-DD")
+			return nil, fmt.Errorf("некорректный формат date. Ожидается YYYY-MM-DD")
 		}
 		return parsed, nil
 	}
-
-	date = time.Now()
-
-	return &date, nil
+	now := time.Now()
+	return &now, nil
 }
 
 func (h *Handler) GetLimits(r *http.Request) (any, string, error) {
-
 	ctx := r.Context()
 	date, err := h.readGetLimitsRequest(r)
 	if err != nil {
-		return nil, err.Error(), apperrors.ErrValidation
+		return nil, err.Error(), md.ErrValidation
 	}
 	lim, err := h.service.GetLimits(ctx, *date)
-
 	if err != nil {
 		return nil, "", err
 	}
 
 	var resp []limitDTO
-
 	for _, l := range lim {
 		resp = append(resp, limitDTO{
 			LoadDate:       l.LoadDate.Format(md.DateFormat),
@@ -51,9 +44,7 @@ func (h *Handler) GetLimits(r *http.Request) (any, string, error) {
 			AcquisitionCcy: l.AcquisitionCcy,
 		})
 	}
-
 	return resp, "", nil
-
 }
 
 type limitDTO struct {

@@ -5,19 +5,19 @@ import (
 	"errors"
 	"time"
 
-	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/apperrors"
-	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/models"
+	"github.com/boldlogic/PortfolioLens/pkg/models"
+	qmodels "github.com/boldlogic/PortfolioLens/quik-portfolio/internal/models"
 )
 
-func (s *Service) GetLimits(ctx context.Context, date time.Time) ([]models.Limit, error) {
-	var res []models.Limit
-	ml, err := s.limitsRepo.GetMoneyLimits(ctx, date)
-	if err != nil && !errors.Is(err, apperrors.ErrNotFound) {
+func (s *Service) GetLimits(ctx context.Context, date time.Time) ([]qmodels.Limit, error) {
+	var res []qmodels.Limit
+
+	ml, err := s.repo.GetMoneyLimits(ctx, date)
+	if err != nil && !errors.Is(err, models.ErrNotFound) {
 		return nil, err
 	}
-
 	for _, m := range ml {
-		res = append(res, models.Limit{
+		res = append(res, qmodels.Limit{
 			LoadDate:   m.LoadDate,
 			ClientCode: m.ClientCode,
 			Ticker:     m.Currency,
@@ -27,13 +27,12 @@ func (s *Service) GetLimits(ctx context.Context, date time.Time) ([]models.Limit
 		})
 	}
 
-	sl, err := s.limitsRepo.GetSecurityLimits(ctx, date)
-	if err != nil && !errors.Is(err, apperrors.ErrNotFound) {
+	sl, err := s.repo.GetSecurityLimits(ctx, date)
+	if err != nil && !errors.Is(err, models.ErrNotFound) {
 		return nil, err
 	}
-
 	for _, s := range sl {
-		res = append(res, models.Limit{
+		res = append(res, qmodels.Limit{
 			LoadDate:       s.LoadDate,
 			ClientCode:     s.ClientCode,
 			Ticker:         s.Ticker,
@@ -44,13 +43,13 @@ func (s *Service) GetLimits(ctx context.Context, date time.Time) ([]models.Limit
 			AcquisitionCcy: s.AcquisitionCcy,
 		})
 	}
-	if len(res) == 0 {
-		return nil, apperrors.ErrNotFound
-	}
 
+	if len(res) == 0 {
+		return nil, models.ErrNotFound
+	}
 	return res, nil
 }
 
-func (s *Service) GetPortfolio(ctx context.Context) ([]models.PortfolioItem, error) {
-	return s.limitsRepo.GetPortfolio(ctx)
+func (s *Service) GetPortfolio(ctx context.Context) ([]qmodels.PortfolioItem, error) {
+	return s.repo.GetPortfolio(ctx)
 }

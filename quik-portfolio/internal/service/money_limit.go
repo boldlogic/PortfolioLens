@@ -8,10 +8,5 @@ import (
 )
 
 func (s *Service) GetML(ctx context.Context, date time.Time) ([]models.MoneyLimit, error) {
-
-	ml, err := s.limitsRepo.GetMoneyLimits(ctx, date)
-	if err != nil {
-		return nil, err
-	}
-	return ml, nil
+	return s.repo.GetMoneyLimits(ctx, date)
 }

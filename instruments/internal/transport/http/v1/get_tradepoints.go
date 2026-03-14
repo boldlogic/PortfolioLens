@@ -2,37 +2,32 @@ package v1
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	"strconv"
 
 	md "github.com/boldlogic/PortfolioLens/pkg/models"
-	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/apperrors"
-	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/v5"
 )
 
 func (h *Handler) GetTradePoints(r *http.Request) (any, string, error) {
-	ctx := r.Context()
-	res, err := h.service.GetTradePoints(ctx)
+	res, err := h.refsSvc.GetTradePoints(r.Context())
 	if err != nil {
-		if errors.Is(err, apperrors.ErrNotFound) {
-			return nil, fmt.Sprintf("торговые площадки не найдены"), err
+		if errors.Is(err, md.ErrNotFound) {
+			return nil, "торговые площадки не найдены", err
 		}
 		return nil, "", err
-
 	}
-
 	return tradePointsToDTO(res), "", nil
 }
 
 func (h *Handler) GetTradePoint(r *http.Request) (any, string, error) {
 	id64, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 8)
 	if err != nil {
-		return nil, "некорректный id торговой площадки", apperrors.ErrValidation
+		return nil, "некорректный id торговой площадки", md.ErrValidation
 	}
-	res, err := h.service.GetTradePointByID(r.Context(), uint8(id64))
+	res, err := h.refsSvc.GetTradePointByID(r.Context(), uint8(id64))
 	if err != nil {
-		if errors.Is(err, apperrors.ErrNotFound) {
+		if errors.Is(err, md.ErrNotFound) {
 			return nil, "торговая площадка не найдена", err
 		}
 		return nil, "", err
@@ -41,13 +36,11 @@ func (h *Handler) GetTradePoint(r *http.Request) (any, string, error) {
 }
 
 func tradePointsToDTO(tradepoints []md.TradePoint) []TradePointDTO {
-	var res = make([]TradePointDTO, 0, len(tradepoints))
-
+	res := make([]TradePointDTO, 0, len(tradepoints))
 	for _, tr := range tradepoints {
 		res = append(res, tradePointToDTO(tr))
 	}
 	return res
-
 }
 
 func tradePointToDTO(tradepoint md.TradePoint) TradePointDTO {

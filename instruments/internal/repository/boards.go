@@ -8,7 +8,7 @@ import (
 	md "github.com/boldlogic/PortfolioLens/pkg/models"
 	"github.com/boldlogic/PortfolioLens/pkg/models/quik"
 	"github.com/boldlogic/PortfolioLens/pkg/shutdown"
-	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/apperrors"
+
 	"go.uber.org/zap"
 )
 
@@ -103,7 +103,7 @@ func (r *Repository) InsBoard(ctx context.Context, code string, name string) (qu
 		}
 
 		r.Logger.Error("ошибка сохранения кода класса", zap.String("code", code), zap.Error(err))
-		return quik.Board{}, apperrors.ErrSavingData
+		return quik.Board{}, md.ErrSavingData
 	}
 
 	r.Logger.Debug("кода класса успешно сохранен", zap.String("code", code), zap.Uint8("board_id", res.Id))
@@ -118,7 +118,7 @@ func (r *Repository) SyncBoardsFromQuotes(ctx context.Context) error {
 		}
 
 		r.Logger.Error("ошибка сохранения кодов классов из котировок", zap.Error(err))
-		return apperrors.ErrSavingData
+		return md.ErrSavingData
 	}
 
 	r.Logger.Debug("коды классов успешно сохранены из котировок")
@@ -133,7 +133,7 @@ func (r *Repository) TagBoardsTradePointId(ctx context.Context) error {
 		}
 
 		r.Logger.Error("ошибка разметки кодов классов", zap.Error(err))
-		return apperrors.ErrSavingData
+		return md.ErrSavingData
 	}
 
 	r.Logger.Debug("разметка кодов классов по торговым площадкам завершена успешно")
@@ -148,7 +148,7 @@ func (r *Repository) GetBoards(ctx context.Context) ([]quik.Board, error) {
 		}
 
 		r.Logger.Error("ошибка получения кодов классов", zap.Error(err))
-		return nil, apperrors.ErrRetrievingData
+		return nil, md.ErrRetrievingData
 	}
 	defer rows.Close()
 
@@ -163,14 +163,14 @@ func (r *Repository) GetBoards(ctx context.Context) ([]quik.Board, error) {
 			}
 
 			r.Logger.Error("ошибка чтения кода класса", zap.Error(err))
-			return nil, apperrors.ErrRetrievingData
+			return nil, md.ErrRetrievingData
 		}
 
 		setBoardTradePointId(&row, tradePointID)
 		result = append(result, row)
 	}
 	if rows.Err() != nil {
-		return nil, apperrors.ErrRetrievingData
+		return nil, md.ErrRetrievingData
 	}
 	return result, nil
 }
@@ -182,7 +182,7 @@ func (r *Repository) GetBoardsWithTradePoint(ctx context.Context) ([]quik.Board,
 			return nil, err
 		}
 		r.Logger.Error("ошибка получения бордов", zap.Error(err))
-		return nil, apperrors.ErrRetrievingData
+		return nil, md.ErrRetrievingData
 	}
 	defer rows.Close()
 
@@ -201,14 +201,14 @@ func (r *Repository) GetBoardsWithTradePoint(ctx context.Context) ([]quik.Board,
 				return nil, err
 			}
 			r.Logger.Error("ошибка сканирования борда", zap.Error(err))
-			return nil, apperrors.ErrRetrievingData
+			return nil, md.ErrRetrievingData
 		}
 		r.Logger.Debug("получение борда", zap.Any("tradePointID", tradePointID), zap.Any("tradePointCode", tradePointCode), zap.Any("tradePointName", tradePointName))
 		setBoardTradePoint(&row, tradePointID, tradePointCode, tradePointName)
 		result = append(result, row)
 	}
 	if rows.Err() != nil {
-		return nil, apperrors.ErrRetrievingData
+		return nil, md.ErrRetrievingData
 	}
 	return result, nil
 }
@@ -219,13 +219,13 @@ func (r *Repository) GetBoardByID(ctx context.Context, id uint8) (quik.Board, er
 	err := r.Db.QueryRowContext(ctx, getBoardByID, id).Scan(&row.Id, &row.Code, &row.Name, &tradePointID, &row.IsTraded)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return quik.Board{}, apperrors.ErrNotFound
+			return quik.Board{}, md.ErrNotFound
 		}
 		if shutdown.IsExceeded(err) {
 			return quik.Board{}, err
 		}
 		r.Logger.Error("ошибка получения борда", zap.Uint8("id", id), zap.Error(err))
-		return quik.Board{}, apperrors.ErrRetrievingData
+		return quik.Board{}, md.ErrRetrievingData
 	}
 	setBoardTradePointId(&row, tradePointID)
 	return row, nil
@@ -242,13 +242,13 @@ func (r *Repository) GetBoardByIDWithTradePoint(ctx context.Context, id uint8) (
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return quik.Board{}, apperrors.ErrNotFound
+			return quik.Board{}, md.ErrNotFound
 		}
 		if shutdown.IsExceeded(err) {
 			return quik.Board{}, err
 		}
 		r.Logger.Error("ошибка получения борда", zap.Uint8("id", id), zap.Error(err))
-		return quik.Board{}, apperrors.ErrRetrievingData
+		return quik.Board{}, md.ErrRetrievingData
 	}
 	setBoardTradePoint(&row, tradePointID, tradePointCode, tradePointName)
 	return row, nil
@@ -262,7 +262,6 @@ func setBoardTradePointId(row *quik.Board, n sql.NullInt32) {
 }
 
 func setBoardTradePoint(row *quik.Board, i sql.NullInt32, c sql.NullString, n sql.NullString) {
-
 	if !i.Valid {
 		return
 	}
@@ -271,7 +270,6 @@ func setBoardTradePoint(row *quik.Board, i sql.NullInt32, c sql.NullString, n sq
 	row.TradePointId = &id
 
 	row.TradePoint = &md.TradePoint{}
-
 	row.TradePoint.Id = id
 
 	if c.Valid {
@@ -280,5 +278,4 @@ func setBoardTradePoint(row *quik.Board, i sql.NullInt32, c sql.NullString, n sq
 	if n.Valid {
 		row.TradePoint.Name = n.String
 	}
-
 }

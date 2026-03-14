@@ -9,10 +9,14 @@ import (
 	"time"
 
 	logger "github.com/boldlogic/PortfolioLens/pkg/logger/zap"
+	"github.com/boldlogic/PortfolioLens/pkg/periodic"
+	"github.com/boldlogic/PortfolioLens/pkg/transport/httpserver"
+	"github.com/boldlogic/PortfolioLens/pkg/transport/httpserver/handler"
 	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/config"
 	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/repository"
 	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/service"
-	httpserver "github.com/boldlogic/PortfolioLens/quik-portfolio/internal/transport/http"
+	portfolioserver "github.com/boldlogic/PortfolioLens/quik-portfolio/internal/transport/http"
+	v1 "github.com/boldlogic/PortfolioLens/quik-portfolio/internal/transport/http/v1"
 	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/workers"
 	"go.uber.org/zap"
 )
@@ -27,8 +31,7 @@ type Application struct {
 	wg      sync.WaitGroup
 	repo    *repository.Repository
 
-	httpSrv *httpserver.Server
-	httpWg  sync.WaitGroup
+	server *httpserver.Server
 }
 
 func New() (*Application, error) {
@@ -55,14 +58,10 @@ func (a *Application) Start(ctx context.Context) error {
 	}
 	a.repo = repo
 
-	a.svc = service.NewService(ctx, a.repo, a.repo, a.Logger)
+	a.svc = service.NewService(a.repo, a.Logger)
 
-	runner := workers.NewRunner(
+	runner := periodic.NewRunner(
 		workers.NewRollForwardOtcWorker(a.svc, a.Logger, 60*time.Second),
-		workers.NewActualizeInstrumentTypesWorker(a.svc, a.Logger, 60*time.Second),
-		workers.NewActualizeInstrumentSubTypesWorker(a.svc, a.Logger, 60*time.Second),
-		workers.NewActualizeBoardsWorker(a.svc, a.Logger, 60*time.Second),
-		//workers.NewSaveInstrumentsWorker(a.svc, a.Logger, 1*time.Second),
 	)
 	a.wg.Add(1)
 	go func() {
@@ -70,23 +69,18 @@ func (a *Application) Start(ctx context.Context) error {
 		runner.Run(ctx)
 	}()
 
-	handler := httpserver.NewHandler(a.svc, a.Logger)
-	router := httpserver.NewRouter(handler, a.Logger, a.cfg)
-	a.httpSrv = httpserver.New(router.Mux, a.cfg.Http, a.Logger)
+	commonHandler := handler.NewHandler()
+	handler := v1.NewHandler(commonHandler, a.svc, a.Logger)
+	router := portfolioserver.NewRouter(handler, a.Logger, &a.cfg.Server)
+	a.server = httpserver.NewServer(router.CommonRouter.Mux, a.cfg.Server)
 
-	err = a.InitDictionaries(ctx)
-	if err != nil {
-		return err
-	}
-	a.httpWg.Add(1)
-
+	a.wg.Add(1)
 	go func() {
-		defer a.httpWg.Done()
-		if err := a.httpSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		defer a.wg.Done()
+		if err := a.server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			a.errChan <- fmt.Errorf("http server остановлен с ошибкой: %w", err)
 		}
 	}()
-	a.Logger.Debug("ok")
 
 	return nil
 }
@@ -95,12 +89,10 @@ func (a *Application) Wait(ctx context.Context, cancel context.CancelFunc) error
 	var appErr error
 
 	errWg := sync.WaitGroup{}
-
 	errWg.Add(1)
 
 	go func() {
 		defer errWg.Done()
-
 		for err := range a.errChan {
 			cancel()
 			appErr = err
@@ -109,39 +101,13 @@ func (a *Application) Wait(ctx context.Context, cancel context.CancelFunc) error
 
 	<-ctx.Done()
 
-	if a.httpSrv != nil {
-		timeout := time.Duration(a.cfg.Http.Timeout) * time.Second
-		if timeout <= 0 {
-			timeout = 20 * time.Second
-		}
-		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), timeout)
-		_ = a.httpSrv.Shutdown(shutdownCtx)
-		shutdownCancel()
+	if a.server != nil {
+		_ = a.server.Shutdown(context.Background())
 	}
 
-	a.httpWg.Wait()
 	a.wg.Wait()
 	close(a.errChan)
 	errWg.Wait()
 
 	return appErr
-}
-
-func (a *Application) InitDictionaries(ctx context.Context) error {
-	err := a.svc.ActualizeInstrumentTypes(ctx)
-	if err != nil {
-		a.Logger.Error("ошибка при инициализации справочника типов инструментов", zap.Error(err))
-		return err
-	}
-	err = a.svc.ActualizeInstrumentSubTypes(ctx)
-	if err != nil {
-		a.Logger.Error("ошибка при инициализации справочника подтипов инструментов", zap.Error(err))
-		return err
-	}
-	err = a.svc.ActualizeBoards(ctx)
-	if err != nil {
-		a.Logger.Error("ошибка при инициализации справочника классов инструментов", zap.Error(err))
-		return err
-	}
-	return nil
 }

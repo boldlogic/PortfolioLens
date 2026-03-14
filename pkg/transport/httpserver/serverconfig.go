@@ -27,8 +27,8 @@ func (srv *ServerConfig) ApplyDefaults() {
 
 func (srv *ServerConfig) Validate() []error {
 	var errs []error
-	if srv.Port < 0 {
-		errs = append(errs, fmt.Errorf("в блоке 'server' некорректный 'port'"))
+	if srv.Port < 1 || srv.Port > 65535 {
+		errs = append(errs, fmt.Errorf("в блоке 'server' некорректный 'port': должен быть в диапазоне 1-65535, получено %d", srv.Port))
 	}
 	return errs
 }

@@ -7,7 +7,6 @@ import (
 
 	md "github.com/boldlogic/PortfolioLens/pkg/models"
 	"github.com/boldlogic/PortfolioLens/pkg/shutdown"
-	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/apperrors"
 	"go.uber.org/zap"
 )
 
@@ -36,7 +35,7 @@ func (r *Repository) GetTradePoints(ctx context.Context) ([]md.TradePoint, error
 
 		r.Logger.Error("не удалось получить торговые площадки", zap.Error(err))
 
-		return nil, apperrors.ErrRetrievingData
+		return nil, md.ErrRetrievingData
 	}
 	defer rows.Close()
 
@@ -49,20 +48,19 @@ func (r *Repository) GetTradePoints(ctx context.Context) ([]md.TradePoint, error
 			}
 
 			r.Logger.Error("ошибка чтения торговой площадки", zap.Error(err))
-			return nil, apperrors.ErrRetrievingData
+			return nil, md.ErrRetrievingData
 		}
 		result = append(result, row)
 	}
 	if rows.Err() != nil {
-		return nil, apperrors.ErrRetrievingData
+		return nil, md.ErrRetrievingData
 	}
 
 	r.Logger.Debug("количество найденных торговых площадок", zap.Int("count", len(result)))
 
 	if len(result) == 0 {
 		r.Logger.Warn("торговые площадки не найдены")
-		return nil, apperrors.ErrNotFound
-
+		return nil, md.ErrNotFound
 	}
 	return result, nil
 }
@@ -76,11 +74,11 @@ func (r *Repository) GetTradePointByID(ctx context.Context, id uint8) (md.TradeP
 		}
 
 		if errors.Is(err, sql.ErrNoRows) {
-			return md.TradePoint{}, apperrors.ErrNotFound
+			return md.TradePoint{}, md.ErrNotFound
 		}
 
 		r.Logger.Error("ошибка получения торговой площадки", zap.Uint8("id", id), zap.Error(err))
-		return md.TradePoint{}, apperrors.ErrRetrievingData
+		return md.TradePoint{}, md.ErrRetrievingData
 	}
 	r.Logger.Debug("торговая площадка получена", zap.Uint8("id", id))
 

@@ -7,10 +7,5 @@ import (
 )
 
 func (s *Service) SaveFirm(ctx context.Context, code string, name string) (quik.Firm, error) {
-
-	res, err := s.limitsRepo.InsertFirm(ctx, code, name)
-	if err != nil {
-		return quik.Firm{}, err
-	}
-	return res, nil
+	return s.repo.InsertFirm(ctx, code, name)
 }

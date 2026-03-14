@@ -5,13 +5,13 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/boldlogic/PortfolioLens/pkg/models"
 	"github.com/boldlogic/PortfolioLens/pkg/models/quik"
-	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/apperrors"
-	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/v5"
 )
 
 func (h *Handler) GetBoards(r *http.Request) (any, string, error) {
-	res, err := h.service.GetBoards(r.Context())
+	res, err := h.refsSvc.GetBoards(r.Context())
 	if err != nil {
 		return nil, "", err
 	}
@@ -21,11 +21,11 @@ func (h *Handler) GetBoards(r *http.Request) (any, string, error) {
 func (h *Handler) GetBoard(r *http.Request) (any, string, error) {
 	id64, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 8)
 	if err != nil {
-		return nil, "некорректный id борда", apperrors.ErrValidation
+		return nil, "некорректный id борда", models.ErrValidation
 	}
-	res, err := h.service.GetBoardByID(r.Context(), uint8(id64))
+	res, err := h.refsSvc.GetBoardByID(r.Context(), uint8(id64))
 	if err != nil {
-		if errors.Is(err, apperrors.ErrNotFound) {
+		if errors.Is(err, models.ErrNotFound) {
 			return nil, "борд не найден", err
 		}
 		return nil, "", err
@@ -44,7 +44,6 @@ func boardToDTO(b quik.Board) BoardDTO {
 		tr := tradePointToDTO(*b.TradePoint)
 		out.TradePoint = &tr
 	}
-
 	return out
 }
 

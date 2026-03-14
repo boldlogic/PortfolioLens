@@ -3,11 +3,10 @@ package repository
 import (
 	"context"
 	"database/sql"
-	"errors"
 
+	"github.com/boldlogic/PortfolioLens/pkg/models"
 	"github.com/boldlogic/PortfolioLens/pkg/shutdown"
-	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/apperrors"
-	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/models"
+	qmodels "github.com/boldlogic/PortfolioLens/quik-portfolio/internal/models"
 	"go.uber.org/zap"
 )
 
@@ -29,7 +28,7 @@ WITH
                 PARTITION BY li.load_date, li.client_code, li.ticker, li.trade_account, li.firm_code
             )
         FROM quik.security_limits li
-        WHERE li.load_date = cast(getdate() as date)
+        WHERE li.load_date = cast(SYSDATETIMEOFFSET() as date)
     ),
     cte_filtered AS (
         SELECT load_date, client_code, ticker, trade_account, firm_code, firm_name, balance, acquisition_ccy, isin
@@ -79,8 +78,8 @@ LEFT JOIN fx_cbr_rates f_accr ON f_accr.[date] = c.load_date AND f_accr.quote_is
 ORDER BY c.load_date, c.client_code, c.ticker, c.trade_account, c.firm_code
 `
 
-func (r *Repository) GetPortfolio(ctx context.Context) ([]models.PortfolioItem, error) {
-	var result []models.PortfolioItem
+func (r *Repository) GetPortfolio(ctx context.Context) ([]qmodels.PortfolioItem, error) {
+	var result []qmodels.PortfolioItem
 	r.Logger.Debug("получение портфеля (позиции + mv_rub)")
 
 	rows, err := r.Db.QueryContext(ctx, getPortfolio)
@@ -88,38 +87,25 @@ func (r *Repository) GetPortfolio(ctx context.Context) ([]models.PortfolioItem, 
 		if shutdown.IsExceeded(err) {
 			return nil, err
 		}
-		if errors.Is(err, sql.ErrNoRows) {
-			r.Logger.Debug("портфель не найден")
-			return nil, apperrors.ErrNotFound
-		}
 		r.Logger.Error("ошибка запроса портфеля", zap.Error(err))
-		return nil, apperrors.ErrRetrievingData
+		return nil, models.ErrRetrievingData
 	}
 	defer rows.Close()
 
 	for rows.Next() {
-		var row models.PortfolioItem
+		var row qmodels.PortfolioItem
 		var mvCurrency, shortName sql.NullString
 		err = rows.Scan(
-			&row.LoadDate,
-			&row.ClientCode,
-			&row.Ticker,
-			&row.TradeAccount,
-			&row.FirmCode,
-			&row.FirmName,
-			&row.Balance,
-			&row.AcquisitionCcy,
-			&row.ISIN,
-			&mvCurrency,
-			&row.MvRub,
-			&shortName,
+			&row.LoadDate, &row.ClientCode, &row.Ticker, &row.TradeAccount,
+			&row.FirmCode, &row.FirmName, &row.Balance, &row.AcquisitionCcy,
+			&row.ISIN, &mvCurrency, &row.MvRub, &shortName,
 		)
 		if err != nil {
 			if shutdown.IsExceeded(err) {
 				return nil, err
 			}
 			r.Logger.Error("ошибка при сканировании строки портфеля", zap.Error(err))
-			return nil, apperrors.ErrRetrievingData
+			return nil, models.ErrRetrievingData
 		}
 		if mvCurrency.Valid {
 			row.MvCurrency = &mvCurrency.String
@@ -130,12 +116,11 @@ func (r *Repository) GetPortfolio(ctx context.Context) ([]models.PortfolioItem, 
 		result = append(result, row)
 	}
 	if rows.Err() != nil {
-		return nil, apperrors.ErrRetrievingData
+		return nil, models.ErrRetrievingData
 	}
 	if len(result) == 0 {
 		r.Logger.Debug("позиции портфеля не найдены")
-		return nil, apperrors.ErrRetrievingData
-
+		return nil, models.ErrNotFound
 	}
 	return result, nil
 }

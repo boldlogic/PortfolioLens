@@ -7,12 +7,14 @@ import (
 
 	"github.com/boldlogic/PortfolioLens/pkg/config"
 	logger "github.com/boldlogic/PortfolioLens/pkg/logger/zap"
+	"github.com/boldlogic/PortfolioLens/pkg/transport/httpserver"
 	"gopkg.in/yaml.v3"
 )
 
 type Config struct {
-	Log logger.Config   `yaml:"log" json:"log"`
-	Db  config.DBConfig `yaml:"db" json:"db"`
+	Log    logger.Config           `yaml:"log" json:"log"`
+	Server httpserver.ServerConfig `yaml:"server" json:"server"`
+	Db     config.DBConfig         `yaml:"db" json:"db"`
 }
 
 func LoadConfig(configPath string) (*Config, error) {
@@ -42,12 +44,16 @@ func (c *Config) validate() []error {
 	if len(dbErrs) > 0 {
 		errs = append(errs, dbErrs...)
 	}
+	srvErrs := c.Server.Validate()
+	if len(srvErrs) > 0 {
+		errs = append(errs, srvErrs...)
+	}
 
 	return errs
 }
 
 func (c *Config) applyDefaults() {
 	c.Db.ApplySecretsFromEnv()
-
 	c.Db.ApplyDefaults()
+	c.Server.ApplyDefaults()
 }

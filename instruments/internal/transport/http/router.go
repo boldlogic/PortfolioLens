@@ -1,9 +1,9 @@
-package portfolioserver
+package instrumentserver
 
 import (
+	v1 "github.com/boldlogic/PortfolioLens/instruments/internal/transport/http/v1"
 	"github.com/boldlogic/PortfolioLens/pkg/transport/httpserver"
 	"github.com/boldlogic/PortfolioLens/pkg/transport/httpserver/router"
-	v1 "github.com/boldlogic/PortfolioLens/quik-portfolio/internal/transport/http/v1"
 	"go.uber.org/zap"
 )
 
