@@ -28,17 +28,24 @@ func NewHandler(commonHandler CommonHandler, svc Service, logger *zap.Logger) *H
 		logger:        logger,
 	}
 }
+
 func (h *Handler) Adapt(fn handler.HandlerFunc) http.HandlerFunc {
 	return h.commonHandler.Adapt(fn)
 }
 
 type Service interface {
-	GetML(ctx context.Context, date time.Time) ([]models.MoneyLimit, error)
-	GetSL(ctx context.Context, date time.Time) ([]models.SecurityLimit, error)
-	GetSLOtc(ctx context.Context, date time.Time) ([]models.SecurityLimit, error)
-	SaveSL(ctx context.Context, sec models.SecurityLimit) error
-	SaveSLOtc(ctx context.Context, sec models.SecurityLimit) error
+	GetMoneyLimits(ctx context.Context, date time.Time) ([]models.MoneyLimit, error)
+	GetSecurityLimits(ctx context.Context, date time.Time) ([]models.SecurityLimit, error)
+	GetSecurityLimitsOtc(ctx context.Context, date time.Time) ([]models.SecurityLimit, error)
+
+	CreateMoneyLimit(ctx context.Context, ml models.MoneyLimit) (models.MoneyLimit, error)
+	CreateSecurityLimit(ctx context.Context, sec models.SecurityLimit) (models.SecurityLimit, error)
+	CreateSecurityLimitOtc(ctx context.Context, sec models.SecurityLimit) (models.SecurityLimit, error)
+
 	GetLimits(ctx context.Context, date time.Time) ([]models.Limit, error)
-	GetPortfolio(ctx context.Context) ([]models.PortfolioItem, error)
-	SaveFirm(ctx context.Context, code string, name string) (quik.Firm, error)
+	GetPortfolio(ctx context.Context, targetCcy string) ([]models.PortfolioEntry, error)
+	GetFirms(ctx context.Context) ([]quik.Firm, error)
+	GetFirmByID(ctx context.Context, id uint8) (quik.Firm, error)
+	CreateFirm(ctx context.Context, code string, name string) (quik.Firm, error)
+	UpdateFirm(ctx context.Context, id uint8, name string) (quik.Firm, error)
 }

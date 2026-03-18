@@ -2,13 +2,10 @@ package v1
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 
 	md "github.com/boldlogic/PortfolioLens/pkg/models"
-	"github.com/boldlogic/PortfolioLens/pkg/utils"
 	qmodels "github.com/boldlogic/PortfolioLens/quik-portfolio/internal/models"
-	"go.uber.org/zap"
 )
 
 func (h *Handler) GetSecurityLimits(r *http.Request) (any, string, error) {
@@ -17,41 +14,58 @@ func (h *Handler) GetSecurityLimits(r *http.Request) (any, string, error) {
 	if err != nil {
 		return nil, err.Error(), md.ErrValidation
 	}
-	sls, err := h.service.GetSL(ctx, *date)
-	h.logger.Debug("запрос позиций по бумагам", zap.Error(err), zap.Any("count", len(sls)))
 
+	sls, err := h.service.GetSecurityLimits(ctx, date)
 	if err != nil {
-		if errors.Is(err, md.ErrNotFound) {
-			return nil, fmt.Sprintf("позиции по бумагам за %s не найдены", date.Format(utils.DateFormat)), err
+		if errors.Is(err, md.ErrBusinessValidation) {
+			return nil, err.Error(), err
 		}
+
 		return nil, "", err
 	}
-	return convertSecurityLimit(sls), "", nil
+	return securityLimitsToResp(sls), "", nil
 }
 
-func convertSecurityLimit(sls []qmodels.SecurityLimit) []securityLimitDTO {
-	var res []securityLimitDTO
+func securityLimitsToResp(sls []qmodels.SecurityLimit) []securityLimitDTO {
+
+	if len(sls) == 0 {
+		return []securityLimitDTO{}
+	}
+
+	res := make([]securityLimitDTO, 0, len(sls))
 	for _, sl := range sls {
-		dto := securityLimitDTO{
-			LoadDate:       sl.LoadDate.Format(md.DateFormat),
-			ClientCode:     sl.ClientCode,
-			Ticker:         sl.Ticker,
-			FirmName:       sl.FirmName,
-			Balance:        sl.Balance,
-			AcquisitionCcy: sl.AcquisitionCcy,
-		}
-		if sl.ISIN != nil {
-			dto.ISIN = *sl.ISIN
-		}
-		res = append(res, dto)
+		res = append(res, securityLimitToDTO(sl))
 	}
 	return res
 }
 
+func securityLimitToDTO(sl qmodels.SecurityLimit) securityLimitDTO {
+	var out securityLimitDTO
+	out.LoadDate = sl.LoadDate.Format(md.ISODateFormat)
+	out.SourceDate = sl.SourceDate.Format(md.ISODateFormat)
+	out.ClientCode = sl.ClientCode
+	out.Ticker = sl.Ticker
+	out.TradeAccount = sl.TradeAccount
+	out.SettleCode = string(sl.SettleCode)
+	out.FirmCode = sl.FirmCode
+	out.FirmName = sl.FirmName
+	out.Balance = sl.Balance.InexactFloat64()
+	out.AcquisitionCcy = sl.AcquisitionCcy
+
+	if sl.ISIN != nil {
+		out.ISIN = *sl.ISIN
+	}
+	return out
+}
+
 type securityLimitDTO struct {
 	LoadDate       string  `json:"loadDate"`
+	SourceDate     string  `json:"sourceDate"`
 	ClientCode     string  `json:"clientCode"`
 	Ticker         string  `json:"ticker"`
+	TradeAccount   string  `json:"tradeAccount"`
+	SettleCode     string  `json:"settleCode"`
+	FirmCode       string  `json:"firmCode"`
 	FirmName       string  `json:"firmName"`
 	Balance        float64 `json:"balance"`
 	AcquisitionCcy string  `json:"acquisitionCcy"`

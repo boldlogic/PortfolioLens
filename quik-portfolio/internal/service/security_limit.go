@@ -2,71 +2,131 @@ package service
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"time"
 
 	"github.com/boldlogic/PortfolioLens/pkg/models"
 	qmodels "github.com/boldlogic/PortfolioLens/quik-portfolio/internal/models"
 )
 
-func (s *Service) GetSL(ctx context.Context, date time.Time) ([]qmodels.SecurityLimit, error) {
-	return s.repo.GetSecurityLimits(ctx, date)
-}
-
-func (s *Service) GetSLOtc(ctx context.Context, date time.Time) ([]qmodels.SecurityLimit, error) {
-	return s.repo.GetSecurityLimitsOtc(ctx, date)
-}
-
-func (s *Service) SaveSL(ctx context.Context, sec qmodels.SecurityLimit) error {
-	firm, err := s.repo.GetFirmByName(ctx, sec.FirmName)
+func (s *Service) GetSecurityLimits(ctx context.Context, date time.Time) ([]qmodels.SecurityLimit, error) {
+	maxDate, err := s.repo.SelectSecurityLimitsMaxDate(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	sec.FirmCode = firm.Code
-
-	if err = checkSettleCode(sec.SettleCode); err != nil {
-		return err
+	if maxDate == nil {
+		return []qmodels.SecurityLimit{}, nil
 	}
-
-	return s.repo.SaveSecurityLimit(ctx, sec)
+	if err := checkLimitDate(date, *maxDate); err != nil {
+		return nil, err
+	}
+	return s.repo.SelectSecurityLimits(ctx, date)
 }
 
-func (s *Service) SaveSLOtc(ctx context.Context, sec qmodels.SecurityLimit) error {
-	firm, err := s.repo.GetFirmByName(ctx, sec.FirmName)
+func (s *Service) GetSecurityLimitsOtc(ctx context.Context, date time.Time) ([]qmodels.SecurityLimit, error) {
+	maxDate, err := s.repo.SelectSecurityLimitsOtcMaxDate(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	sec.FirmCode = firm.Code
+	if maxDate == nil {
+		return []qmodels.SecurityLimit{}, nil
+	}
+	if err := checkLimitDate(date, *maxDate); err != nil {
+		return nil, err
+	}
+	return s.repo.SelectSecurityLimitsOtc(ctx, date)
+}
+
+func (s *Service) CreateSecurityLimit(ctx context.Context, sec qmodels.SecurityLimit) (qmodels.SecurityLimit, error) {
+	maxDate, err := s.repo.SelectSecurityLimitsMaxDate(ctx)
+	if err != nil && !errors.Is(err, models.ErrNotFound) {
+		return qmodels.SecurityLimit{}, err
+	}
+	if err := checkLimitDate(sec.LoadDate, minRollForwardDate(maxDate)); err != nil {
+		return qmodels.SecurityLimit{}, err
+	}
+
+	if sec.SettleCode == "" {
+		sec.SettleCode = models.SettleCodeTx
+	}
+
+	err = sec.SettleCode.Validate()
+	if err != nil {
+		return qmodels.SecurityLimit{}, fmt.Errorf("%w: %s", models.ErrBusinessValidation, err.Error())
+	}
+
+	created, err := s.repo.InsertSecurityLimit(ctx, sec)
+	if err != nil {
+		if errors.Is(err, models.ErrNotFound) {
+			return qmodels.SecurityLimit{}, fmt.Errorf("%w: некорректное имя фирмы", models.ErrBusinessValidation)
+		}
+		if errors.Is(err, models.ErrConflict) {
+			return qmodels.SecurityLimit{}, fmt.Errorf("%w: load_date=%s client_code=%s ticker=%s trade_account=%s settle_code=%s firm_name=%s",
+				models.ErrConflict,
+				sec.LoadDate.Format(models.ISODateFormat),
+				sec.ClientCode,
+				sec.Ticker,
+				sec.TradeAccount,
+				sec.SettleCode,
+				sec.FirmName)
+		}
+		return qmodels.SecurityLimit{}, err
+	}
+	return created, nil
+}
+
+func (s *Service) CreateSecurityLimitOtc(ctx context.Context, sec qmodels.SecurityLimit) (qmodels.SecurityLimit, error) {
+	maxDate, err := s.repo.SelectSecurityLimitsOtcMaxDate(ctx)
+	if err != nil && !errors.Is(err, models.ErrNotFound) {
+		return qmodels.SecurityLimit{}, err
+	}
+	if err := checkLimitDate(sec.LoadDate, minRollForwardDate(maxDate)); err != nil {
+		return qmodels.SecurityLimit{}, err
+	}
+
 	sec.TradeAccount = "OTC"
-	sec.SettleCode = "Tx"
-	return s.repo.SaveSecurityLimitOtc(ctx, sec)
-}
-
-func checkSettleCode(code string) error {
-	allowedSettle := map[string]bool{"T0": true, "T1": true, "T2": true, "Tx": true}
-	if !allowedSettle[code] {
-		return models.ErrBusinessValidation
+	if sec.SettleCode == "" {
+		sec.SettleCode = models.SettleCodeTx
 	}
-	return nil
-}
 
-// DoRollForwardOtc выполняет одну итерацию переноса OTC-лимитов: с макс. даты по сегодня.
-func (s *Service) DoRollForwardOtc(ctx context.Context) error {
-	date, err := s.repo.GetSecurityLimitsOtcMaxDate(ctx)
+	err = sec.SettleCode.Validate()
 	if err != nil {
-		return err
+		return qmodels.SecurityLimit{}, fmt.Errorf("%w: %s", models.ErrBusinessValidation, err.Error())
 	}
-	if date == nil {
-		return nil
+
+	created, err := s.repo.InsertSecurityLimitOtc(ctx, sec)
+	if err != nil {
+		if errors.Is(err, models.ErrNotFound) {
+			return qmodels.SecurityLimit{}, fmt.Errorf("%w: некорректное имя фирмы", models.ErrBusinessValidation)
+		}
+		if errors.Is(err, models.ErrConflict) {
+			return qmodels.SecurityLimit{}, fmt.Errorf("%w: load_date=%s client_code=%s ticker=%s trade_account=%s settle_code=%s firm_name=%s",
+				models.ErrConflict,
+				sec.LoadDate.Format(models.ISODateFormat),
+				sec.ClientCode,
+				sec.Ticker,
+				sec.TradeAccount,
+				sec.SettleCode,
+				sec.FirmName)
+		}
+		return qmodels.SecurityLimit{}, err
 	}
-	now := time.Now()
-	loc := now.Location()
-	maxDateOnly := time.Date(date.In(loc).Year(), date.In(loc).Month(), date.In(loc).Day(), 0, 0, 0, 0, loc)
-	todayOnly := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
-	if !todayOnly.After(maxDateOnly) {
-		return nil
-	}
-	if err := s.repo.RollSecurityLimitsOtcFromDateToDate(ctx, maxDateOnly, todayOnly); err != nil {
-		return err
-	}
-	return s.repo.DeleteSecurityLimitsOtcBeforeDate(ctx, maxDateOnly)
+	return created, nil
+}
+
+func (s *Service) DoRollForwardOtc(ctx context.Context) error {
+	return doRollForward(ctx,
+		s.repo.SelectSecurityLimitsOtcMaxDate,
+		s.repo.InsertSecurityLimitsOtcCopy,
+		s.repo.DeleteSecurityLimitsOtc,
+	)
+}
+
+func (s *Service) DoRollForwardSecurityLimits(ctx context.Context) error {
+	return doRollForward(ctx,
+		s.repo.SelectSecurityLimitsMaxDate,
+		s.repo.InsertSecurityLimitsCopy,
+		s.repo.DeleteSecurityLimits,
+	)
 }

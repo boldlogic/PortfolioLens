@@ -8,7 +8,6 @@ import (
 type Router struct {
 	Mux    *chi.Mux
 	logger *zap.Logger
-	//config  *config.Config
 }
 
 func NewRouter(handler *Handler, logger *zap.Logger) *Router {
@@ -17,13 +16,20 @@ func NewRouter(handler *Handler, logger *zap.Logger) *Router {
 		r.Route("/limits", func(r chi.Router) {
 			r.Get("/", handler.Adapt(handler.GetLimits))
 			r.Get("/money", handler.Adapt(handler.GetMoneyLimits))
+			r.Post("/money", handler.Adapt(handler.CreateMoneyLimit))
+			
 			r.Get("/securities", handler.Adapt(handler.GetSecurityLimits))
-			r.Post("/securities", handler.Adapt(handler.AddSecurityLimit))
+			r.Post("/securities", handler.Adapt(handler.CreateSecurityLimit))
 			r.Get("/securities/otc", handler.Adapt(handler.GetSecurityLimitsOtc))
-			r.Post("/securities/otc", handler.Adapt(handler.AddSecurityLimitOtc))
+			r.Post("/securities/otc", handler.Adapt(handler.CreateSecurityLimitOtc))
 		})
 		r.Get("/portfolio", handler.Adapt(handler.GetPortfolio))
-		r.Post("/firms", handler.Adapt(handler.AddFirm))
+		r.Route("/firms", func(r chi.Router) {
+			r.Get("/", handler.Adapt(handler.GetFirms))
+			r.Post("/", handler.Adapt(handler.CreateFirm))
+			r.Get("/{id}", handler.Adapt(handler.GetFirm))
+			r.Patch("/{id}", handler.Adapt(handler.UpdateFirm))
+		})
 	})
 	return &Router{
 		Mux:    router,

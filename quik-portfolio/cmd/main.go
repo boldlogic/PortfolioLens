@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"os/signal"
 	"syscall"
@@ -25,7 +24,6 @@ func main() {
 	if err = app.Start(ctx); err != nil {
 		log.Fatalf("Не удалось запустить приложение: %v", err)
 	}
-	fmt.Println("ok")
 	app.Logger.Info("Приложение запущено")
 	err = app.Wait(ctx, cancel)
 	if err != nil {

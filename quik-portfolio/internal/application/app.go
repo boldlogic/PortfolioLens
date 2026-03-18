@@ -43,7 +43,7 @@ func New() (*Application, error) {
 	return &Application{
 		cfg:     config,
 		Logger:  log,
-		errChan: make(chan error, 8),
+		errChan: make(chan error, 1),
 	}, nil
 }
 
@@ -54,14 +54,17 @@ func (a *Application) Start(ctx context.Context) error {
 	dsn := a.cfg.Db.GetDSN()
 	repo, err := repository.NewRepository(ctx, dsn, a.Logger)
 	if err != nil {
-		return fmt.Errorf("%w", err)
+		return err
 	}
 	a.repo = repo
 
 	a.svc = service.NewService(a.repo, a.Logger)
 
 	runner := periodic.NewRunner(
+		workers.NewRollForwardMoneyLimitsWorker(a.svc, a.Logger, 60*time.Second),
+		workers.NewRollForwardSecurityLimitsWorker(a.svc, a.Logger, 60*time.Second),
 		workers.NewRollForwardOtcWorker(a.svc, a.Logger, 60*time.Second),
+		workers.NewActualizeFirmsWorker(a.svc, a.Logger, 60*time.Second),
 	)
 	a.wg.Add(1)
 	go func() {
@@ -102,7 +105,9 @@ func (a *Application) Wait(ctx context.Context, cancel context.CancelFunc) error
 	<-ctx.Done()
 
 	if a.server != nil {
-		_ = a.server.Shutdown(context.Background())
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer shutdownCancel()
+		_ = a.server.Shutdown(shutdownCtx)
 	}
 
 	a.wg.Wait()

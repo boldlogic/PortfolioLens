@@ -12,12 +12,13 @@ CREATE TABLE
     quik.money_limits (
         load_date date NOT NULL DEFAULT (getdate ()),
         client_code varchar(12) NOT NULL,
-        ccy varchar(3) NOT NULL,
+        ccy varchar(4) NOT NULL,
         position_code varchar(4) NOT NULL,
-        settle_code varchar(2) NOT NULL,
+        settle_code varchar(5) NOT NULL,
         firm_code varchar(12) NOT NULL,
         firm_name varchar(128) NULL,
-        balance float NULL,
+        balance DECIMAL(19,4) NULL,
+        source_date date NOT NULL DEFAULT (getdate()),
         ts timestamp NOT NULL,
 
         CONSTRAINT PK_quik_money_limits PRIMARY KEY CLUSTERED (

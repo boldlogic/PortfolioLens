@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/boldlogic/PortfolioLens/pkg/models"
+	"github.com/boldlogic/PortfolioLens/pkg/transport/httpserver/httputils"
 )
 
 type Handler struct {
@@ -22,6 +23,10 @@ func (h *Handler) Adapt(fn HandlerFunc) http.HandlerFunc {
 		if err != nil {
 			var resp HTTPErr
 			switch {
+			case errors.Is(err, httputils.ErrUnsupportedMediaType):
+				resp = UnsupportedMediaType(detail)
+			case errors.Is(err, httputils.ErrRequestEntityTooLarge):
+				resp = RequestEntityTooLarge(detail)
 			case errors.Is(err, models.ErrValidation):
 				resp = BadRequest(detail)
 			case errors.Is(err, models.ErrBusinessValidation):

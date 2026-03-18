@@ -5,34 +5,47 @@ import (
 	"time"
 
 	"github.com/boldlogic/PortfolioLens/pkg/models/quik"
-	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/models"
+	qmodels "github.com/boldlogic/PortfolioLens/quik-portfolio/internal/models"
 	"go.uber.org/zap"
 )
 
 type MoneyLimitsRepo interface {
-	GetMoneyLimits(ctx context.Context, date time.Time) ([]models.MoneyLimit, error)
+	SelectMoneyLimits(ctx context.Context, date time.Time) ([]qmodels.MoneyLimit, error)
+	InsertMoneyLimit(ctx context.Context, s qmodels.MoneyLimit) (qmodels.MoneyLimit, error)
+	SelectMoneyLimitsMaxDate(ctx context.Context) (*time.Time, error)
+	InsertMoneyLimitsCopy(ctx context.Context, dateFrom time.Time, dateTo time.Time) error
+	DeleteMoneyLimits(ctx context.Context, date time.Time) error
 }
 
 type SecurityLimitsRepo interface {
-	GetSecurityLimits(ctx context.Context, date time.Time) ([]models.SecurityLimit, error)
-	SaveSecurityLimit(ctx context.Context, s models.SecurityLimit) error
+	SelectSecurityLimits(ctx context.Context, date time.Time) ([]qmodels.SecurityLimit, error)
+	InsertSecurityLimit(ctx context.Context, s qmodels.SecurityLimit) (qmodels.SecurityLimit, error)
+	SelectSecurityLimitsMaxDate(ctx context.Context) (*time.Time, error)
+	InsertSecurityLimitsCopy(ctx context.Context, dateFrom time.Time, dateTo time.Time) error
+	DeleteSecurityLimits(ctx context.Context, date time.Time) error
 }
 
 type SecurityLimitsOtcRepo interface {
-	GetSecurityLimitsOtc(ctx context.Context, date time.Time) ([]models.SecurityLimit, error)
-	SaveSecurityLimitOtc(ctx context.Context, s models.SecurityLimit) error
-	GetSecurityLimitsOtcMaxDate(ctx context.Context) (*time.Time, error)
-	RollSecurityLimitsOtcFromDateToDate(ctx context.Context, dateFrom time.Time, dateTo time.Time) error
-	DeleteSecurityLimitsOtcBeforeDate(ctx context.Context, date time.Time) error
+	SelectSecurityLimitsOtc(ctx context.Context, date time.Time) ([]qmodels.SecurityLimit, error)
+	InsertSecurityLimitOtc(ctx context.Context, s qmodels.SecurityLimit) (qmodels.SecurityLimit, error)
+	SelectSecurityLimitsOtcMaxDate(ctx context.Context) (*time.Time, error)
+	InsertSecurityLimitsOtcCopy(ctx context.Context, dateFrom time.Time, dateTo time.Time) error
+	DeleteSecurityLimitsOtc(ctx context.Context, date time.Time) error
 }
 
 type PortfolioRepo interface {
-	GetPortfolio(ctx context.Context) ([]models.PortfolioItem, error)
+	SelectSecuritiesPortfolio(ctx context.Context, date time.Time, targetCcy string) ([]qmodels.PortfolioEntry, error)
+	SelectSecuritiesOtcPortfolio(ctx context.Context, date time.Time, targetCcy string) ([]qmodels.PortfolioEntry, error)
+	SelectMoneyLimitsPortfolio(ctx context.Context, date time.Time, targetCcy string) ([]qmodels.PortfolioEntry, error)
 }
 
 type FirmsRepo interface {
+	SelectFirms(ctx context.Context) ([]quik.Firm, error)
+	SelectFirmByID(ctx context.Context, id uint8) (quik.Firm, error)
+	SelectFirmByName(ctx context.Context, name string) (quik.Firm, error)
 	InsertFirm(ctx context.Context, code string, name string) (quik.Firm, error)
-	GetFirmByName(ctx context.Context, name string) (quik.Firm, error)
+	UpdateFirm(ctx context.Context, id uint8, name string) (quik.Firm, error)
+	SyncFirmsFromLimits(ctx context.Context) error
 }
 
 type Repository interface {

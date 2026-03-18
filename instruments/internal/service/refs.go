@@ -7,8 +7,6 @@ import (
 	"github.com/boldlogic/PortfolioLens/pkg/models/quik"
 )
 
-// ActualizeRefs последовательно синхронизирует все справочники.
-// Порядок важен: subtypes зависят от types, boards теггируются после sync.
 func (s *Service) ActualizeRefs(ctx context.Context) error {
 	if err := s.refsSyncRepo.SyncInstrumentTypesFromQuotes(ctx); err != nil {
 		return err
