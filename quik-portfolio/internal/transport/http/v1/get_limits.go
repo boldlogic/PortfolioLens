@@ -1,66 +1,79 @@
 package v1
 
 import (
-	"fmt"
+	"errors"
 	"net/http"
 	"time"
 
 	md "github.com/boldlogic/PortfolioLens/pkg/models"
 	"github.com/boldlogic/PortfolioLens/pkg/utils"
-	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/apperrors"
+	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/models"
 )
 
-func (h *Handler) readGetLimitsRequest(r *http.Request) (*time.Time, error) {
-	var date time.Time
+func (h *Handler) readGetLimitsRequest(r *http.Request) (time.Time, error) {
 	dateReq := r.URL.Query().Get("date")
-	if dateReq != "" {
-		parsed, err := utils.ParseDate(dateReq)
-		if err != nil {
-			return nil, fmt.Errorf("Некорректный формат date. Ожидается YYYY-MM-DD")
-		}
-		return parsed, nil
-	}
-
-	date = time.Now()
-
-	return &date, nil
+	return utils.ParseIsoDateWithDefault(dateReq)
 }
 
 func (h *Handler) GetLimits(r *http.Request) (any, string, error) {
-
 	ctx := r.Context()
 	date, err := h.readGetLimitsRequest(r)
 	if err != nil {
-		return nil, err.Error(), apperrors.ErrValidation
+		return nil, err.Error(), md.ErrValidation
 	}
-	lim, err := h.service.GetLimits(ctx, *date)
-
+	lim, err := h.service.GetLimits(ctx, date)
 	if err != nil {
+		if errors.Is(err, md.ErrBusinessValidation) {
+			return nil, err.Error(), err
+		}
+
 		return nil, "", err
 	}
 
-	var resp []limitDTO
+	return limitsToResp(lim), "", nil
+}
 
-	for _, l := range lim {
-		resp = append(resp, limitDTO{
-			LoadDate:       l.LoadDate.Format(md.DateFormat),
-			ClientCode:     l.ClientCode,
-			Ticker:         l.Ticker,
-			FirmName:       l.FirmName,
-			Balance:        l.Balance,
-			AcquisitionCcy: l.AcquisitionCcy,
-		})
+func limitsToResp(limits []models.Limit) []limitDTO {
+	if len(limits) == 0 {
+		return []limitDTO{}
 	}
+	resp := make([]limitDTO, 0, len(limits))
+	for _, l := range limits {
+		resp = append(resp, limitToDTO(l))
+	}
+	return resp
+}
 
-	return resp, "", nil
-
+func limitToDTO(limit models.Limit) limitDTO {
+	var isin string
+	if limit.ISIN != nil {
+		isin = *limit.ISIN
+	}
+	return limitDTO{
+		LimitType:      string(limit.LimitType),
+		LoadDate:       limit.LoadDate.Format(md.ISODateFormat),
+		SourceDate:     limit.SourceDate.Format(md.ISODateFormat),
+		ClientCode:     limit.ClientCode,
+		Instrument:     limit.InstrumentCode,
+		ISIN:           isin,
+		SettleCode:     string(limit.SettleCode),
+		FirmCode:       limit.FirmCode,
+		FirmName:       limit.FirmName,
+		Balance:        limit.Balance.InexactFloat64(),
+		AcquisitionCcy: limit.AcquisitionCcy,
+	}
 }
 
 type limitDTO struct {
-	LoadDate       string  `json:"loadDate,omitempty"`
-	ClientCode     string  `json:"clientCode,omitempty"`
-	Ticker         string  `json:"ticker,omitempty"`
-	FirmName       string  `json:"firmName,omitempty"`
-	Balance        float64 `json:"balance,omitempty"`
-	AcquisitionCcy string  `json:"acquisitionCcy,omitempty"`
+	LimitType      string  `json:"limitType"`
+	LoadDate       string  `json:"loadDate"`
+	SourceDate     string  `json:"sourceDate"`
+	ClientCode     string  `json:"clientCode"`
+	Instrument     string  `json:"instrument"`
+	ISIN           string  `json:"isin,omitempty"`
+	SettleCode     string  `json:"settleCode"`
+	FirmCode       string  `json:"firmCode"`
+	FirmName       string  `json:"firmName"`
+	Balance        float64 `json:"balance"`
+	AcquisitionCcy string  `json:"acquisitionCcy"`
 }

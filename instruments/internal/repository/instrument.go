@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"errors"
 
-	"github.com/boldlogic/PortfolioLens/instruments/internal/apperrors"
 	"github.com/boldlogic/PortfolioLens/instruments/internal/models"
+	md "github.com/boldlogic/PortfolioLens/pkg/models"
 	"github.com/boldlogic/PortfolioLens/pkg/shutdown"
 	"go.uber.org/zap"
 )
@@ -60,7 +60,7 @@ func (r *Repository) GetInstrumentId(ctx context.Context, ticker string, tradePo
 
 		if errors.Is(err, sql.ErrNoRows) {
 			r.Logger.Debug("инструмент не найден", zap.String("ticker", ticker), zap.Uint8("trade_point_id", tradePointId))
-			return 0, apperrors.ErrNotFound
+			return 0, md.ErrNotFound
 		}
 
 		r.Logger.Error("ошибка получения инструмента", zap.String("ticker", ticker), zap.Uint8("trade_point_id", tradePointId), zap.Error(err))
@@ -85,7 +85,7 @@ func (r *Repository) InsInstrument(ctx context.Context, i models.Instrument) (in
 			return 0, err
 		}
 		r.Logger.Error("ошибка сохранения инструмента", zap.String("ticker", i.Ticker), zap.Uint8("trade_point_id", i.TradePointId), zap.Error(err))
-		return 0, apperrors.ErrSavingData
+		return 0, md.ErrSavingData
 	}
 
 	return instrumentId, nil

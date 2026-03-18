@@ -64,3 +64,19 @@ func Conflict(detail string) HTTPErr {
 		Detail: detail,
 	}
 }
+
+func UnsupportedMediaType(detail string) HTTPErr {
+	return HTTPErr{
+		Title:  "UNSUPPORTED_MEDIA_TYPE",
+		Status: http.StatusUnsupportedMediaType,
+		Detail: detail,
+	}
+}
+
+func RequestEntityTooLarge(detail string) HTTPErr {
+	return HTTPErr{
+		Title:  "REQUEST_ENTITY_TOO_LARGE",
+		Status: http.StatusRequestEntityTooLarge,
+		Detail: detail,
+	}
+}

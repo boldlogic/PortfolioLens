@@ -3,54 +3,178 @@ package service
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
-	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/apperrors"
-	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/models"
+	md "github.com/boldlogic/PortfolioLens/pkg/models"
+	"github.com/boldlogic/PortfolioLens/pkg/utils"
+	qmodels "github.com/boldlogic/PortfolioLens/quik-portfolio/internal/models"
+	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 )
 
-func (s *Service) GetLimits(ctx context.Context, date time.Time) ([]models.Limit, error) {
-	var res []models.Limit
-	ml, err := s.limitsRepo.GetMoneyLimits(ctx, date)
-	if err != nil && !errors.Is(err, apperrors.ErrNotFound) {
+func (s *Service) GetLimits(ctx context.Context, date time.Time) ([]qmodels.Limit, error) {
+	var res []qmodels.Limit
+	var ml []qmodels.MoneyLimit
+	var sl []qmodels.SecurityLimit
+	var otc []qmodels.SecurityLimit
+	var maxDateMoney, maxDateSec, maxDateOtc *time.Time
+
+	g, gCtx := errgroup.WithContext(ctx)
+
+	g.Go(func() error {
+		var err error
+		maxDateMoney, err = s.repo.SelectMoneyLimitsMaxDate(gCtx)
+		if errors.Is(err, md.ErrNotFound) {
+			return nil
+		}
+		return err
+	})
+	g.Go(func() error {
+		var err error
+		maxDateSec, err = s.repo.SelectSecurityLimitsMaxDate(gCtx)
+		if errors.Is(err, md.ErrNotFound) {
+			return nil
+		}
+		return err
+	})
+	g.Go(func() error {
+		var err error
+		maxDateOtc, err = s.repo.SelectSecurityLimitsOtcMaxDate(gCtx)
+		if errors.Is(err, md.ErrNotFound) {
+			return nil
+		}
+		return err
+	})
+
+	if err := g.Wait(); err != nil {
+		return nil, err
+	}
+
+	minAvailable := utils.EarliestDate(maxDateMoney, maxDateSec, maxDateOtc)
+	if minAvailable == nil {
+		return []qmodels.Limit{}, nil
+	}
+	if err := checkLimitDate(date, *minAvailable); err != nil {
+		return nil, err
+	}
+
+	g, gCtx = errgroup.WithContext(ctx)
+
+	g.Go(func() error {
+		var err error
+		ml, err = s.repo.SelectMoneyLimits(gCtx, date)
+		return err
+	})
+
+	g.Go(func() error {
+		var err error
+		sl, err = s.repo.SelectSecurityLimits(gCtx, date)
+		return err
+	})
+
+	g.Go(func() error {
+		var err error
+		otc, err = s.repo.SelectSecurityLimitsOtc(gCtx, date)
+		return err
+	})
+
+	if err := g.Wait(); err != nil {
 		return nil, err
 	}
 
 	for _, m := range ml {
-		res = append(res, models.Limit{
-			LoadDate:   m.LoadDate,
-			ClientCode: m.ClientCode,
-			Ticker:     m.Currency,
-			FirmCode:   m.FirmCode,
-			FirmName:   m.FirmName,
-			Balance:    m.Balance,
+		res = append(res, qmodels.Limit{
+			LimitType:      qmodels.LimitTypeMoney,
+			LoadDate:       m.LoadDate,
+			SourceDate:     m.SourceDate,
+			ClientCode:     m.ClientCode,
+			InstrumentCode: m.Currency,
+			SettleCode:     m.SettleCode,
+			FirmCode:       m.FirmCode,
+			FirmName:       m.FirmName,
+			Balance:        m.Balance,
 		})
 	}
 
-	sl, err := s.limitsRepo.GetSecurityLimits(ctx, date)
-	if err != nil && !errors.Is(err, apperrors.ErrNotFound) {
-		return nil, err
-	}
-
-	for _, s := range sl {
-		res = append(res, models.Limit{
-			LoadDate:       s.LoadDate,
-			ClientCode:     s.ClientCode,
-			Ticker:         s.Ticker,
-			FirmCode:       s.FirmCode,
-			FirmName:       s.FirmName,
-			Balance:        s.Balance,
-			ISIN:           s.ISIN,
-			AcquisitionCcy: s.AcquisitionCcy,
+	for _, l := range sl {
+		res = append(res, qmodels.Limit{
+			LimitType:      qmodels.LimitTypeSecurities,
+			LoadDate:       l.LoadDate,
+			SourceDate:     l.SourceDate,
+			ClientCode:     l.ClientCode,
+			InstrumentCode: l.Ticker,
+			SettleCode:     l.SettleCode,
+			FirmCode:       l.FirmCode,
+			FirmName:       l.FirmName,
+			Balance:        l.Balance,
+			ISIN:           l.ISIN,
+			AcquisitionCcy: l.AcquisitionCcy,
 		})
 	}
+	for _, o := range otc {
+		res = append(res, qmodels.Limit{
+			LimitType:      qmodels.LimitTypeSecuritiesOtc,
+			LoadDate:       o.LoadDate,
+			SourceDate:     o.SourceDate,
+			ClientCode:     o.ClientCode,
+			InstrumentCode: o.Ticker,
+			SettleCode:     o.SettleCode,
+			FirmCode:       o.FirmCode,
+			FirmName:       o.FirmName,
+			Balance:        o.Balance,
+			ISIN:           o.ISIN,
+			AcquisitionCcy: o.AcquisitionCcy,
+		})
+	}
+
 	if len(res) == 0 {
-		return nil, apperrors.ErrNotFound
+		s.logger.Warn("позиции не найдены", zap.Time("load_date", date))
 	}
-
 	return res, nil
 }
 
-func (s *Service) GetPortfolio(ctx context.Context) ([]models.PortfolioItem, error) {
-	return s.limitsRepo.GetPortfolio(ctx)
+func (s *Service) GetPortfolio(ctx context.Context, targetCcy string) ([]qmodels.PortfolioEntry, error) {
+	if targetCcy == "" {
+		targetCcy = "RUB"
+	}
+	targetCcy = strings.ToUpper(strings.TrimSpace(targetCcy))
+	if err := validateCurrencyCode(targetCcy); err != nil {
+		return nil, err
+	}
+
+	var securities []qmodels.PortfolioEntry
+	var otcEntries []qmodels.PortfolioEntry
+	var moneyEntries []qmodels.PortfolioEntry
+
+	g, gCtx := errgroup.WithContext(ctx)
+
+	g.Go(func() error {
+		var err error
+		securities, err = s.repo.SelectSecuritiesPortfolio(gCtx, utils.Today(), targetCcy)
+		return err
+	})
+
+	g.Go(func() error {
+		var err error
+		otcEntries, err = s.repo.SelectSecuritiesOtcPortfolio(gCtx, utils.Today(), targetCcy)
+		return err
+	})
+
+	g.Go(func() error {
+		var err error
+		moneyEntries, err = s.repo.SelectMoneyLimitsPortfolio(gCtx, utils.Today(), targetCcy)
+		return err
+	})
+
+	if err := g.Wait(); err != nil {
+		return nil, err
+	}
+
+	entries := make([]qmodels.PortfolioEntry, 0, len(securities)+len(otcEntries)+len(moneyEntries))
+	entries = append(entries, securities...)
+	entries = append(entries, otcEntries...)
+	entries = append(entries, moneyEntries...)
+
+	return entries, nil
 }

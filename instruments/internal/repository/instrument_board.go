@@ -3,8 +3,8 @@ package repository
 import (
 	"context"
 
-	"github.com/boldlogic/PortfolioLens/instruments/internal/apperrors"
 	"github.com/boldlogic/PortfolioLens/instruments/internal/models"
+	md "github.com/boldlogic/PortfolioLens/pkg/models"
 	"github.com/boldlogic/PortfolioLens/pkg/shutdown"
 	"go.uber.org/zap"
 )
@@ -87,7 +87,7 @@ func (r *Repository) MergeInstrumentBoard(ctx context.Context, ib models.Instrum
 		}
 
 		r.Logger.Error("ошибка сохранения кода класса для инструмента", zap.Int("instrument_id", ib.InstrumentId), zap.Uint8("board_id", ib.BoardId), zap.Error(err))
-		return apperrors.ErrSavingData
+		return md.ErrSavingData
 	}
 	return nil
 

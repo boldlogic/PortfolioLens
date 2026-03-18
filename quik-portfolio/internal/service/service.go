@@ -4,57 +4,66 @@ import (
 	"context"
 	"time"
 
-	md "github.com/boldlogic/PortfolioLens/pkg/models"
 	"github.com/boldlogic/PortfolioLens/pkg/models/quik"
-	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/models"
+	qmodels "github.com/boldlogic/PortfolioLens/quik-portfolio/internal/models"
 	"go.uber.org/zap"
 )
 
-type Service struct {
-	logger       *zap.Logger
-	quikRefsRepo QuikRefsRepository
-	limitsRepo   LimitsRepository
+type MoneyLimitsRepo interface {
+	SelectMoneyLimits(ctx context.Context, date time.Time) ([]qmodels.MoneyLimit, error)
+	InsertMoneyLimit(ctx context.Context, s qmodels.MoneyLimit) (qmodels.MoneyLimit, error)
+	SelectMoneyLimitsMaxDate(ctx context.Context) (*time.Time, error)
+	InsertMoneyLimitsCopy(ctx context.Context, dateFrom time.Time, dateTo time.Time) error
+	DeleteMoneyLimits(ctx context.Context, date time.Time) error
 }
 
-type QuikRefsRepository interface {
-	GetInstrumentTypeId(ctx context.Context, title string) (quik.InstrumentType, error)
-	InsInstrumentType(ctx context.Context, title string) (quik.InstrumentType, error)
-	SyncInstrumentTypesFromQuotes(ctx context.Context) error
-	GetInstrumentSubTypeId(ctx context.Context, typeId uint8, title string) (quik.InstrumentSubType, error)
-	InsInstrumentSubType(ctx context.Context, typeId uint8, title string) (quik.InstrumentSubType, error)
-	SyncInstrumentSubTypesFromQuotes(ctx context.Context) error
-	SyncBoardsFromQuotes(ctx context.Context) error
-	TagBoardsTradePointId(ctx context.Context) error
-
-	GetTradePoints(ctx context.Context) ([]md.TradePoint, error)
-	GetTradePointByID(ctx context.Context, id uint8) (md.TradePoint, error)
-	GetBoards(ctx context.Context) ([]quik.Board, error)
-	GetBoardByID(ctx context.Context, id uint8) (quik.Board, error)
-	GetBoardByIDWithTradePoint(ctx context.Context, id uint8) (quik.Board, error)
-	GetBoardsWithTradePoint(ctx context.Context) ([]quik.Board, error)
+type SecurityLimitsRepo interface {
+	SelectSecurityLimits(ctx context.Context, date time.Time) ([]qmodels.SecurityLimit, error)
+	InsertSecurityLimit(ctx context.Context, s qmodels.SecurityLimit) (qmodels.SecurityLimit, error)
+	SelectSecurityLimitsMaxDate(ctx context.Context) (*time.Time, error)
+	InsertSecurityLimitsCopy(ctx context.Context, dateFrom time.Time, dateTo time.Time) error
+	DeleteSecurityLimits(ctx context.Context, date time.Time) error
 }
 
-type LimitsRepository interface {
-	GetMoneyLimits(ctx context.Context, date time.Time) ([]models.MoneyLimit, error)
+type SecurityLimitsOtcRepo interface {
+	SelectSecurityLimitsOtc(ctx context.Context, date time.Time) ([]qmodels.SecurityLimit, error)
+	InsertSecurityLimitOtc(ctx context.Context, s qmodels.SecurityLimit) (qmodels.SecurityLimit, error)
+	SelectSecurityLimitsOtcMaxDate(ctx context.Context) (*time.Time, error)
+	InsertSecurityLimitsOtcCopy(ctx context.Context, dateFrom time.Time, dateTo time.Time) error
+	DeleteSecurityLimitsOtc(ctx context.Context, date time.Time) error
+}
 
-	GetSecurityLimits(ctx context.Context, date time.Time) ([]models.SecurityLimit, error)
-	SaveSecurityLimit(ctx context.Context, s models.SecurityLimit) error
+type PortfolioRepo interface {
+	SelectSecuritiesPortfolio(ctx context.Context, date time.Time, targetCcy string) ([]qmodels.PortfolioEntry, error)
+	SelectSecuritiesOtcPortfolio(ctx context.Context, date time.Time, targetCcy string) ([]qmodels.PortfolioEntry, error)
+	SelectMoneyLimitsPortfolio(ctx context.Context, date time.Time, targetCcy string) ([]qmodels.PortfolioEntry, error)
+}
 
-	GetSecurityLimitsOtc(ctx context.Context, date time.Time) ([]models.SecurityLimit, error)
-	SaveSecurityLimitOtc(ctx context.Context, s models.SecurityLimit) error
-	GetSecurityLimitsOtcMaxDate(ctx context.Context) (*time.Time, error)
-	RollSecurityLimitsOtcFromDateToDate(ctx context.Context, dateFrom time.Time, dateTo time.Time) error
-	DeleteSecurityLimitsOtcBeforeDate(ctx context.Context, date time.Time) error
-
-	GetPortfolio(ctx context.Context) ([]models.PortfolioItem, error)
+type FirmsRepo interface {
+	SelectFirms(ctx context.Context) ([]quik.Firm, error)
+	SelectFirmByID(ctx context.Context, id uint8) (quik.Firm, error)
+	SelectFirmByName(ctx context.Context, name string) (quik.Firm, error)
 	InsertFirm(ctx context.Context, code string, name string) (quik.Firm, error)
-	GetFirmByName(ctx context.Context, name string) (quik.Firm, error)
+	UpdateFirm(ctx context.Context, id uint8, name string) (quik.Firm, error)
+	SyncFirmsFromLimits(ctx context.Context) error
 }
 
-func NewService(ctx context.Context, quikRefsRepo QuikRefsRepository, limitsRepo LimitsRepository, logger *zap.Logger) *Service {
+type Repository interface {
+	MoneyLimitsRepo
+	SecurityLimitsRepo
+	SecurityLimitsOtcRepo
+	PortfolioRepo
+	FirmsRepo
+}
+
+type Service struct {
+	logger *zap.Logger
+	repo   Repository
+}
+
+func NewService(repo Repository, logger *zap.Logger) *Service {
 	return &Service{
-		logger:       logger,
-		quikRefsRepo: quikRefsRepo,
-		limitsRepo:   limitsRepo,
+		logger: logger,
+		repo:   repo,
 	}
 }

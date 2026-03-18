@@ -6,207 +6,203 @@ import (
 	"errors"
 	"time"
 
+	"github.com/boldlogic/PortfolioLens/pkg/models"
 	"github.com/boldlogic/PortfolioLens/pkg/shutdown"
-	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/apperrors"
-	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/models"
+	qmodels "github.com/boldlogic/PortfolioLens/quik-portfolio/internal/models"
 	mssql "github.com/microsoft/go-mssqldb"
 	"go.uber.org/zap"
 )
 
 const (
 	insertSecurityLimitOtc = `
-INSERT INTO quik.security_limits_otc
-           (load_date, client_code, ticker, trade_account, settle_code, firm_code, firm_name, balance, acquisition_ccy, isin)
-     VALUES (@p1, @p2, @p3, @p4, @p5, @p6, @p7, @p8, @p9, @p10)
+		WITH src AS
+		(
+			SELECT  load_date = @p1
+				,client_code = @p2
+				,ticker = @p3
+				,trade_account = @p4
+				,settle_code = @p5
+				,firm_name = @p6
+				,balance = @p7
+				,acquisition_ccy = @p8
+				,isin = @p9
+		)
+		INSERT INTO quik.security_limits_otc (load_date, client_code, ticker, trade_account, settle_code, firm_code, firm_name, balance, acquisition_ccy, isin, source_date)
+		OUTPUT inserted.load_date, inserted.source_date, inserted.client_code, inserted.ticker, inserted.trade_account, inserted.settle_code, inserted.firm_code, inserted.firm_name, inserted.balance, inserted.acquisition_ccy, inserted.isin
+		SELECT  src.load_date
+			,src.client_code
+			,src.ticker
+			,src.trade_account
+			,src.settle_code
+			,f.code
+			,src.firm_name
+			,src.balance
+			,src.acquisition_ccy
+			,src.isin
+			,src.load_date
+		FROM src
+		CROSS APPLY (
+			SELECT TOP 1 code
+			FROM quik.firms
+			WHERE name = src.firm_name
+		) f
 	`
 	getSecurityLimitsOtc = `
-SELECT load_date, client_code, ticker, trade_account, firm_code, firm_name, balance, acquisition_ccy, isin
-FROM quik.security_limits_otc
-WHERE load_date = CAST(@p1 AS date) AND balance <> 0
-ORDER BY load_date, client_code, ticker, trade_account, firm_code
+			WITH cte AS (
+			SELECT
+				li.load_date,
+				li.source_date,
+				li.client_code,
+				li.ticker,
+				li.trade_account,
+				li.firm_code,
+				li.settle_code,
+				li.firm_name,
+				li.balance,
+				li.acquisition_ccy,
+				li.isin,
+				settle_max = MAX(li.settle_code) OVER (
+					PARTITION BY li.load_date, li.client_code, li.ticker, li.trade_account, li.firm_code
+				)
+			FROM quik.security_limits_otc li
+			WHERE li.load_date = cast(@p1 as date)
+		)
+		SELECT
+			load_date,
+			source_date,
+			client_code,
+			ticker,
+			settle_code,
+			trade_account,
+			firm_code,
+			firm_name,
+			balance,
+			acquisition_ccy,
+			isin
+		FROM cte
+		WHERE 1=1
+		ORDER BY load_date, client_code, ticker, trade_account, firm_code
 	`
 	getSecurityLimitsOtcMaxDate = `
 	select max(load_date) FROM quik.security_limits_otc 
 	`
 	deleteSecurityLimitsOtcBeforeDate = `
-DELETE FROM
-    quik.security_limits_otc
-WHERE
-    load_date<CAST(@p1 AS date)	
+		DELETE FROM
+			quik.security_limits_otc
+		WHERE
+			load_date<CAST(@p1 AS date)	
 	`
 	rollSecurityLimitsOtcFromDateToDate = `
-INSERT INTO
-    quik.security_limits_otc (
-        load_date,
-        client_code,
-        ticker,
-        trade_account,
-        settle_code,
-        firm_code,
-        firm_name,
-        balance,
-        acquisition_ccy,
-        isin
-    )
-SELECT
-    CAST(@p1 AS date),
-    client_code,
-    ticker,
-    trade_account,
-    settle_code,
-    firm_code,
-    firm_name,
-    balance,
-    acquisition_ccy,
-    isin
-FROM
-    quik.security_limits_otc
-WHERE
-    load_date=CAST(@p2 AS date)
-    AND balance<>0
-ORDER BY
-    load_date,
-    client_code,
-    ticker,
-    trade_account,
-    firm_code	
+		INSERT INTO
+			quik.security_limits_otc (
+				load_date, client_code, ticker, trade_account, settle_code,
+				firm_code, firm_name, balance, acquisition_ccy, isin, source_date
+			)
+		SELECT
+			CAST(@p1 AS date), client_code, ticker, trade_account, settle_code,
+			firm_code, firm_name, balance, acquisition_ccy, isin, source_date
+		FROM
+			quik.security_limits_otc
+		WHERE
+			load_date = CAST(@p2 AS date) AND balance <> 0
+		ORDER BY load_date, client_code, ticker, trade_account, firm_code
 	`
 )
 
-func (r *Repository) DeleteSecurityLimitsOtcBeforeDate(ctx context.Context, date time.Time) error {
+func (r *Repository) DeleteSecurityLimitsOtc(ctx context.Context, date time.Time) error {
 	_, err := r.Db.ExecContext(ctx, deleteSecurityLimitsOtcBeforeDate, date)
 	if err != nil {
-
 		if shutdown.IsExceeded(err) {
 			return err
 		}
-
-		r.Logger.Error("ошибка при удалении лимитов OTC по бумагам",
-			zap.Time("LoadDate", date),
-			zap.Error(err))
-		return apperrors.ErrSavingData
+		r.Logger.Error("ошибка при удалении лимитов OTC по бумагам", zap.Time("load_date", date), zap.Error(err))
+		return models.ErrSavingData
 	}
-
-	r.Logger.Debug("лимиты OTC по бумаге успешно удалены",
-		zap.Time("LoadDate", date))
+	r.Logger.Debug("лимиты OTC по бумаге успешно удалены", zap.Time("load_date", date))
 	return nil
 }
 
-func (r *Repository) RollSecurityLimitsOtcFromDateToDate(ctx context.Context, dateFrom time.Time, dateTo time.Time) error {
-	_, err := r.Db.ExecContext(ctx, rollSecurityLimitsOtcFromDateToDate,
-		dateTo, dateFrom)
-	if err != nil {
-
-		if shutdown.IsExceeded(err) {
-			return err
-		}
-
-		var msErr mssql.Error
-		if errors.As(err, &msErr) && (msErr.Number == 2627 || msErr.Number == 2601) {
-			r.Logger.Warn("лимит OTC по бумаге уже существует",
-				zap.Time("LoadDate", dateTo))
-			return apperrors.ErrConflict
-		}
-
-		r.Logger.Error("ошибка при создании лимита OTC по бумаге",
-			zap.Time("LoadDate", dateTo),
-			zap.Error(err))
-		return apperrors.ErrSavingData
-	}
-	r.Logger.Debug("лимит OTC по бумаге успешно сохранен",
-		zap.Time("LoadDate", dateTo))
-	return nil
-}
-
-func (r *Repository) SaveSecurityLimitOtc(ctx context.Context, s models.SecurityLimit) error {
-	_, err := r.Db.ExecContext(ctx, insertSecurityLimitOtc,
-		s.LoadDate,
-		s.ClientCode,
-		s.Ticker,
-		s.TradeAccount,
-		s.SettleCode,
-		s.FirmCode,
-		s.FirmName,
-		s.Balance,
-		s.AcquisitionCcy,
-		s.ISIN)
-
+func (r *Repository) InsertSecurityLimitsOtcCopy(ctx context.Context, dateFrom time.Time, dateTo time.Time) error {
+	_, err := r.Db.ExecContext(ctx, rollSecurityLimitsOtcFromDateToDate, dateTo, dateFrom)
 	if err != nil {
 		if shutdown.IsExceeded(err) {
 			return err
 		}
-
 		var msErr mssql.Error
 		if errors.As(err, &msErr) && (msErr.Number == 2627 || msErr.Number == 2601) {
-			r.Logger.Warn("лимит OTC по бумаге уже существует",
-				zap.Time("LoadDate", s.LoadDate),
-				zap.String("ClientCode", s.ClientCode),
-				zap.String("Ticker", s.Ticker),
-				zap.String("TradeAccount", s.TradeAccount),
-				zap.String("FirmCode", s.FirmCode))
-			return apperrors.ErrConflict
+			r.Logger.Warn("лимит OTC по бумаге уже существует", zap.Time("load_date", dateTo))
+			return models.ErrConflict
 		}
-
-		r.Logger.Error("ошибка при создании лимита OTC по бумаге",
-			zap.Time("LoadDate", s.LoadDate),
-			zap.String("ClientCode", s.ClientCode),
-			zap.String("Ticker", s.Ticker),
-			zap.Error(err))
-		return apperrors.ErrSavingData
+		r.Logger.Error("ошибка при создании лимита OTC по бумаге", zap.Time("load_date", dateTo), zap.Error(err))
+		return models.ErrSavingData
 	}
-	r.Logger.Debug("лимит OTC по бумаге успешно сохранен",
-		zap.Time("LoadDate", s.LoadDate),
-		zap.String("ClientCode", s.ClientCode),
-		zap.String("Ticker", s.Ticker))
+	r.Logger.Debug("лимит OTC по бумаге успешно сохранен", zap.Time("load_date", dateTo))
 	return nil
 }
 
-func (r *Repository) GetSecurityLimitsOtcMaxDate(ctx context.Context) (*time.Time, error) {
+func (r *Repository) InsertSecurityLimitOtc(ctx context.Context, s qmodels.SecurityLimit) (qmodels.SecurityLimit, error) {
+	var out qmodels.SecurityLimit
+	row := r.Db.QueryRowContext(ctx, insertSecurityLimitOtc,
+		s.LoadDate, s.ClientCode, s.Ticker, s.TradeAccount, string(s.SettleCode),
+		s.FirmName, s.Balance, s.AcquisitionCcy, s.ISIN)
+	err := row.Scan(&out.LoadDate, &out.SourceDate, &out.ClientCode, &out.Ticker, &out.TradeAccount, &out.SettleCode, &out.FirmCode, &out.FirmName, &out.Balance, &out.AcquisitionCcy, &out.ISIN)
+	if err != nil {
+		if shutdown.IsExceeded(err) {
+			return qmodels.SecurityLimit{}, err
+		}
+		if errors.Is(err, sql.ErrNoRows) {
+			r.Logger.Warn("фирма не найдена", zap.String("firm_name", s.FirmName))
+			return qmodels.SecurityLimit{}, models.ErrNotFound
+		}
+		var msErr mssql.Error
+		if errors.As(err, &msErr) && (msErr.Number == 2627 || msErr.Number == 2601) {
+			r.Logger.Warn("лимит OTC по бумаге уже существует",
+				zap.Time("load_date", s.LoadDate), zap.String("client_code", s.ClientCode), zap.String("ticker", s.Ticker))
+			return qmodels.SecurityLimit{}, models.ErrConflict
+		}
+		r.Logger.Error("ошибка при создании лимита OTC по бумаге",
+			zap.Time("load_date", s.LoadDate), zap.String("client_code", s.ClientCode), zap.String("ticker", s.Ticker), zap.Error(err))
+		return qmodels.SecurityLimit{}, models.ErrSavingData
+	}
+	r.Logger.Debug("лимит OTC по бумаге успешно сохранен",
+		zap.Time("load_date", s.LoadDate), zap.String("client_code", s.ClientCode), zap.String("ticker", s.Ticker))
+	return out, nil
+}
 
+func (r *Repository) SelectSecurityLimitsOtcMaxDate(ctx context.Context) (*time.Time, error) {
 	var date *time.Time
-	r.Logger.Debug("получение максимальной даты из quik.security_limits_otc")
 	row := r.Db.QueryRowContext(ctx, getSecurityLimitsOtcMaxDate)
-
 	err := row.Scan(&date)
 	if err != nil {
 		if shutdown.IsExceeded(err) {
 			return nil, err
 		}
-
-		if errors.Is(err, sql.ErrNoRows) {
-			r.Logger.Debug("лимиты не найдены")
-			return nil, apperrors.ErrNotFound
-		}
 		r.Logger.Error("ошибка получения максимальной даты из quik.security_limits_otc", zap.Error(err))
-		return nil, apperrors.ErrRetrievingData
+		return nil, models.ErrRetrievingData
 	}
 	return date, nil
-
 }
 
-func (r *Repository) GetSecurityLimitsOtc(ctx context.Context, date time.Time) ([]models.SecurityLimit, error) {
-	var result []models.SecurityLimit
+func (r *Repository) SelectSecurityLimitsOtc(ctx context.Context, date time.Time) ([]qmodels.SecurityLimit, error) {
+	var result []qmodels.SecurityLimit
 	rows, err := r.Db.QueryContext(ctx, getSecurityLimitsOtc, date)
 	if err != nil {
 		if shutdown.IsExceeded(err) {
 			return nil, err
 		}
-
-		if errors.Is(err, sql.ErrNoRows) {
-			r.Logger.Debug("позиции OTC по бумагам не найдены")
-			return nil, apperrors.ErrNotFound
-		}
-		r.Logger.Error("ошибка запроса позиций OTC по бумагам", zap.Error(err))
-		return nil, apperrors.ErrRetrievingData
+		r.Logger.Error("ошибка запроса позиций OTC по бумагам", zap.Time("load_date", date), zap.Error(err))
+		return nil, models.ErrRetrievingData
 	}
 	defer rows.Close()
 
 	for rows.Next() {
-		row := models.SecurityLimit{}
+		row := qmodels.SecurityLimit{}
 		err = rows.Scan(
 			&row.LoadDate,
+			&row.SourceDate,
 			&row.ClientCode,
 			&row.Ticker,
+			&row.SettleCode,
 			&row.TradeAccount,
 			&row.FirmCode,
 			&row.FirmName,
@@ -218,18 +214,18 @@ func (r *Repository) GetSecurityLimitsOtc(ctx context.Context, date time.Time) (
 			if shutdown.IsExceeded(err) {
 				return nil, err
 			}
-
-			r.Logger.Error("ошибка при сканировании позиции OTC по бумагам", zap.Error(err))
-			return nil, apperrors.ErrRetrievingData
+			r.Logger.Error("ошибка при чтении позиции OTC по бумагам", zap.Time("load_date", date), zap.Error(err))
+			return nil, models.ErrRetrievingData
 		}
 		result = append(result, row)
 	}
 	if rows.Err() != nil {
-		return nil, apperrors.ErrRetrievingData
+		r.Logger.Error("ошибка чтения позиций OTC по бумагам", zap.Time("load_date", date), zap.Error(rows.Err()))
+		return nil, models.ErrRetrievingData
 	}
+	r.Logger.Debug("результаты получения позиций OTC по бумагам", zap.Time("load_date", date), zap.Int("count", len(result)))
 	if len(result) == 0 {
-		r.Logger.Debug("позиции OTC по бумагам не найдены")
-		return nil, apperrors.ErrNotFound
+		r.Logger.Warn("позиции OTC по бумагам не найдены", zap.Time("load_date", date))
 	}
 	return result, nil
 }

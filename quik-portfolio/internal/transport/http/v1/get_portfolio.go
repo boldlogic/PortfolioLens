@@ -1,58 +1,80 @@
 package v1
 
 import (
+	"errors"
 	"net/http"
+	"strings"
 
 	md "github.com/boldlogic/PortfolioLens/pkg/models"
+	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/models"
 )
 
 func (h *Handler) GetPortfolio(r *http.Request) (any, string, error) {
 	ctx := r.Context()
 
-	items, err := h.service.GetPortfolio(ctx)
+	targetCcy := strings.ToUpper(strings.TrimSpace(r.URL.Query().Get("targetCcy")))
+	if targetCcy == "" {
+		targetCcy = "RUB"
+	}
+
+	entries, err := h.service.GetPortfolio(ctx, targetCcy)
 	if err != nil {
+		if errors.Is(err, md.ErrBusinessValidation) {
+			return nil, err.Error(), err
+		}
 		return nil, "", err
 	}
 
-	var resp []portfolioItemDTO
-	for _, it := range items {
-		dto := portfolioItemDTO{
-			LoadDate:       it.LoadDate.Format(md.DateFormat),
-			ClientCode:     it.ClientCode,
-			Ticker:         it.Ticker,
-			TradeAccount:   it.TradeAccount,
-			FirmCode:       it.FirmCode,
-			FirmName:       it.FirmName,
-			Balance:        it.Balance,
-			AcquisitionCcy: it.AcquisitionCcy,
-			MvRub:          it.MvRub,
-		}
-		if it.ISIN != nil {
-			dto.ISIN = *it.ISIN
-		}
-		if it.MvCurrency != nil {
-			dto.MvCurrency = *it.MvCurrency
-		}
-		if it.ShortName != nil {
-			dto.ShortName = *it.ShortName
-		}
-		resp = append(resp, dto)
-	}
-
-	return resp, "", nil
+	return portfolioEntriesToDTO(entries), "", nil
 }
 
-type portfolioItemDTO struct {
+func portfolioEntriesToDTO(entries []models.PortfolioEntry) []portfolioEntryDTO {
+	result := make([]portfolioEntryDTO, 0, len(entries))
+	for _, e := range entries {
+		dto := portfolioEntryDTO{
+			LimitType:  string(e.LimitType),
+			LoadDate:   e.LoadDate.Format(md.ISODateFormat),
+			SourceDate: e.SourceDate.Format(md.ISODateFormat),
+			ClientCode: e.ClientCode,
+			FirmName:   e.FirmName,
+			Instrument: e.Instrument,
+			QTY:        e.Balance.InexactFloat64(),
+			MvInCcy:    e.MvInCcy.InexactFloat64(),
+			MvPrice:    e.MvPrice.InexactFloat64(),
+			MvAccrued:  e.MvAccrued.InexactFloat64(),
+			MvTotal:    e.MvTotal.InexactFloat64(),
+		}
+		if e.ISIN != nil {
+			dto.ISIN = *e.ISIN
+		}
+		if e.ShortName != nil {
+			dto.ShortName = *e.ShortName
+		}
+		dto.MvCurrency = e.MvCurrency
+		dto.TargetCurrency = e.TargetCurrency
+		if e.QuoteDate != nil {
+			dto.QuoteDate = e.QuoteDate.Format(md.ISODateFormat)
+		}
+		result = append(result, dto)
+	}
+	return result
+}
+
+type portfolioEntryDTO struct {
+	LimitType      string  `json:"limitType"`
 	LoadDate       string  `json:"loadDate"`
+	SourceDate     string  `json:"sourceDate"`
 	ClientCode     string  `json:"clientCode"`
-	Ticker         string  `json:"ticker"`
-	TradeAccount   string  `json:"tradeAccount"`
-	FirmCode       string  `json:"firmCode"`
 	FirmName       string  `json:"firmName"`
-	Balance        float64 `json:"balance"`
-	AcquisitionCcy string  `json:"acquisitionCcy"`
+	Instrument     string  `json:"instrument"`
 	ISIN           string  `json:"isin,omitempty"`
-	MvCurrency     string  `json:"mvCurrency,omitempty"`
-	MvRub          float64 `json:"mvRub"`
 	ShortName      string  `json:"shortName,omitempty"`
+	QuoteDate      string  `json:"quoteDate,omitempty"`
+	QTY            float64 `json:"qty"`
+	MvCurrency     string  `json:"mvCurrency,omitempty"`
+	MvInCcy        float64 `json:"mvInCcy"`
+	MvPrice        float64 `json:"mvPrice"`
+	MvAccrued      float64 `json:"mvAccrued"`
+	MvTotal        float64 `json:"mvTotal"`
+	TargetCurrency string  `json:"targetCurrency,omitempty"`
 }

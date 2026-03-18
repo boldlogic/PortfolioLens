@@ -3,70 +3,77 @@ package models
 import (
 	"time"
 
-	md "github.com/boldlogic/PortfolioLens/pkg/models"
+	"github.com/boldlogic/PortfolioLens/pkg/models"
+	"github.com/shopspring/decimal"
 )
-
-type Instrument struct {
-	Id                 int
-	Ticker             string     // Код инструмента
-	ISIN               *string    // Международный идентификатор
-	RegistrationNumber *string    // Рег.номер инструмента
-	FullName           *string    // Полное название инструмента
-	ShortName          string     // Краткое название
-	MaturityDate       *time.Time // Дата погашения
-	CouponDuration     *int       // Длительность купона
-	FaceValue          *float64   // Номинал
-
-	TradePointId uint8
-	TradePoint   *md.TradePoint
-}
 
 type MoneyLimit struct {
 	LoadDate     time.Time
+	SourceDate   time.Time
 	ClientCode   string
 	Currency     string
 	PositionCode string
+	SettleCode   models.SettleCode
 	FirmCode     string
 	FirmName     string
-	Balance      float64
+	Balance      decimal.Decimal
 }
 
 type SecurityLimit struct {
 	LoadDate       time.Time
+	SourceDate     time.Time
 	ClientCode     string
 	Ticker         string
 	TradeAccount   string
-	SettleCode     string
+	SettleCode     models.SettleCode
 	FirmCode       string
 	FirmName       string
-	Balance        float64
+	Balance        decimal.Decimal
 	AcquisitionCcy string
 	ISIN           *string
 }
 
 type Limit struct {
+	LimitType      LimitType
 	LoadDate       time.Time
+	SourceDate     time.Time
 	ClientCode     string
-	Ticker         string
+	InstrumentCode string
 	ISIN           *string
+	SettleCode     models.SettleCode
 	FirmCode       string
 	FirmName       string
-	Balance        float64
+	Balance        decimal.Decimal
 	AcquisitionCcy string
 }
 
-// PortfolioItem — позиция с рыночной стоимостью в рублях (по скрипту portfolio: limits + котировки + fx).
-type PortfolioItem struct {
-	LoadDate       time.Time
-	ClientCode     string
-	Ticker         string
-	TradeAccount   string
-	FirmCode       string
-	FirmName       string
-	Balance        float64
-	AcquisitionCcy string
-	ISIN           *string
-	MvCurrency     *string // валюта рыночной стоимости (из котировки)
-	MvRub          float64 // рыночная стоимость в рублях (с учётом НКД)
-	ShortName      *string // краткое имя инструмента из котировки
+type LimitType string
+
+const (
+	LimitTypeSecurities    LimitType = "securities"     // ценные бумаги (биржевые)
+	LimitTypeSecuritiesOtc LimitType = "securities_otc" // ценные бумаги OTC
+	LimitTypeMoney         LimitType = "money"          // денежные средства
+)
+
+type PortfolioEntry struct {
+	LimitType          LimitType
+	LoadDate           time.Time
+	SourceDate         time.Time
+	ClientCode         string
+	FirmCode           string
+	FirmName           string
+	Instrument         string
+	TradeAccount       string
+	PositionCode       string
+	ISIN               *string
+	AcquisitionCcy     string
+	ShortName          *string
+	QuoteDate          *time.Time
+	Balance    decimal.Decimal
+	MvCurrency string
+	MvInCcy    decimal.Decimal
+	MvPrice    decimal.Decimal
+	MvAccrued  decimal.Decimal
+	MvTotal    decimal.Decimal
+	TargetCurrency string
 }
