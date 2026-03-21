@@ -2,6 +2,9 @@ package application
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"net/http"
 	"sync"
 	"time"
 
@@ -34,7 +37,10 @@ type Application struct {
 	wg      sync.WaitGroup
 }
 
-const defaultConfigPath = "market-data-currency/internal/configs/config.yaml"
+const (
+	defaultConfigPath  = "market-data-currency/internal/configs/config.yaml"
+	errChanBufSize     = 1
+)
 
 func New() (*Application, error) {
 	configPath := commonconfig.GetConfigPath(defaultConfigPath)
@@ -46,7 +52,7 @@ func New() (*Application, error) {
 	return &Application{
 		cfg:     cfg,
 		logger:  log,
-		errChan: make(chan error, 8),
+		errChan: make(chan error, errChanBufSize),
 	}, nil
 }
 
@@ -91,8 +97,8 @@ func (a *Application) Start(ctx context.Context) error {
 	a.wg.Add(1)
 	go func() {
 		defer a.wg.Done()
-		if err := a.server.ListenAndServe(); err != nil {
-			a.logger.Error("HTTP-сервер завершился с ошибкой", zap.Error(err))
+		if err := a.server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			a.errChan <- fmt.Errorf("http server остановлен с ошибкой: %w", err)
 		}
 	}()
 

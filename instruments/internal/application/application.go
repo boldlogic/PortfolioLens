@@ -34,19 +34,22 @@ type Application struct {
 	server  *httpserver.Server
 }
 
-const defaultConfigPath = "instruments/internal/configs/config.yaml"
+const (
+	defaultConfigPath  = "instruments/internal/configs/config.yaml"
+	errChanBufSize     = 1
+)
 
 func New() (*Application, error) {
 	configPath := commonconfig.GetConfigPath(defaultConfigPath)
 	cfg, err := config.Load(configPath)
 	if err != nil {
-		return &Application{}, err
+		return nil, err
 	}
 	log := logger.New(cfg.Log)
 	return &Application{
 		cfg:     cfg,
 		Logger:  log,
-		errChan: make(chan error, 8),
+		errChan: make(chan error, errChanBufSize),
 	}, nil
 }
 

@@ -2,6 +2,9 @@ package application
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"net/http"
 	"sync"
 
 	"github.com/boldlogic/PortfolioLens/pkg/commonconfig"
@@ -27,19 +30,22 @@ type Application struct {
 	wg      sync.WaitGroup
 }
 
-const defaultConfigPath = "task-manager/internal/configs/config.yaml"
+const (
+	defaultConfigPath  = "task-manager/internal/configs/config.yaml"
+	errChanBufSize     = 1
+)
 
 func New() (*Application, error) {
 	configPath := commonconfig.GetConfigPath(defaultConfigPath)
 	cfg, err := config.Load(configPath)
 	if err != nil {
-		return &Application{}, err
+		return nil, err
 	}
 	log := logger.New(cfg.Log)
 	return &Application{
 		cfg:     cfg,
 		logger:  log,
-		errChan: make(chan error, 8),
+		errChan: make(chan error, errChanBufSize),
 	}, nil
 }
 
@@ -63,8 +69,8 @@ func (a *Application) Start(ctx context.Context) error {
 	a.wg.Add(1)
 	go func() {
 		defer a.wg.Done()
-		if err := a.server.ListenAndServe(); err != nil {
-			a.logger.Error("HTTP-сервер завершился с ошибкой", zap.Error(err))
+		if err := a.server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			a.errChan <- fmt.Errorf("http server остановлен с ошибкой: %w", err)
 		}
 	}()
 

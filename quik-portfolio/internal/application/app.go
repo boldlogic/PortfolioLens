@@ -23,7 +23,10 @@ import (
 	"go.uber.org/zap"
 )
 
-const defaultConfigPath = "quik-portfolio/internal/configs/config.yaml"
+const (
+	defaultConfigPath  = "quik-portfolio/internal/configs/config.yaml"
+	errChanBufSize     = 1
+)
 
 type Application struct {
 	cfg    *config.Config
@@ -49,7 +52,7 @@ func New() (*Application, error) {
 	return &Application{
 		cfg:     cfg,
 		Logger:  log,
-		errChan: make(chan error, 1),
+		errChan: make(chan error, errChanBufSize),
 	}, nil
 }
 
