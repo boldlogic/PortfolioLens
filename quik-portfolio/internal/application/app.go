@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/boldlogic/PortfolioLens/pkg/commonconfig"
 	logger "github.com/boldlogic/PortfolioLens/pkg/logger/zap"
 	"github.com/boldlogic/PortfolioLens/pkg/metrics"
 	"github.com/boldlogic/PortfolioLens/pkg/periodic"
@@ -21,6 +22,8 @@ import (
 	"github.com/boldlogic/PortfolioLens/quik-portfolio/internal/workers"
 	"go.uber.org/zap"
 )
+
+const defaultConfigPath = "quik-portfolio/internal/configs/config.yaml"
 
 type Application struct {
 	cfg    *config.Config
@@ -36,19 +39,19 @@ type Application struct {
 }
 
 func New() (*Application, error) {
-	config, err := config.LoadConfig(defaultConfigPath)
+	configPath := commonconfig.GetConfigPath(defaultConfigPath)
+
+	cfg, err := config.Load(configPath)
 	if err != nil {
-		return &Application{}, err
+		return nil, err
 	}
-	log := logger.New(config.Log)
+	log := logger.New(cfg.Log)
 	return &Application{
-		cfg:     config,
+		cfg:     cfg,
 		Logger:  log,
 		errChan: make(chan error, 1),
 	}, nil
 }
-
-const defaultConfigPath = "quik-portfolio/internal/configs/config.yaml"
 
 func (a *Application) Start(ctx context.Context) error {
 

@@ -27,12 +27,13 @@
 
 ## Запуск
 
-Нужен SQL Server с применёнными миграциями из `scripts/sql/` (common и market-data-currency) и конфиг в `market-data-currency/internal/configs/config.yaml`. Пароль БД можно задать через `DB_PASSWORD` (см. `pkg/config`).
+Нужен SQL Server с применёнными миграциями из `scripts/sql/` (common и market-data-currency) и конфиг в `market-data-currency/internal/configs/config.yaml`. Пароль и пользователя БД — через `DB_PASSWORD` и `DB_USER`, см. [`pkg/dbzap/db.go`](../pkg/dbzap/db.go).
 
 Из корня репозитория:
 
 ```bash
 go run ./market-data-currency/cmd
+go run ./market-data-currency/cmd -config /path/to/config.yaml
 ```
 
 ---

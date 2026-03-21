@@ -3,32 +3,25 @@ package config
 import (
 	"errors"
 	"fmt"
-	"os"
 
-	config "github.com/boldlogic/PortfolioLens/pkg/config"
+	"github.com/boldlogic/PortfolioLens/pkg/commonconfig"
+	"github.com/boldlogic/PortfolioLens/pkg/dbzap"
 	logger "github.com/boldlogic/PortfolioLens/pkg/logger/zap"
 	"github.com/boldlogic/PortfolioLens/pkg/transport/httpclient"
 	"github.com/boldlogic/PortfolioLens/pkg/transport/httpserver"
-	"gopkg.in/yaml.v3"
 )
 
 type Config struct {
 	Log    logger.Config               `yaml:"log" json:"log"`
 	Server httpserver.ServerConfig     `yaml:"server" json:"server"`
 	Client httpclient.HttpClientConfig `yaml:"client" json:"client"`
-	Db     config.DBConfig             `yaml:"db" json:"db"`
+	Db     dbzap.DBConfig              `yaml:"db" json:"db"`
 }
 
-func LoadConfig(configPath string) (*Config, error) {
-
-	fileBody, err := os.ReadFile(configPath)
+func Load(configPath string) (*Config, error) {
+	cfg, err := commonconfig.DecodeConfig[Config](configPath)
 	if err != nil {
-		return nil, fmt.Errorf("не удалось прочитать файл конфигурации: %w", err)
-	}
-
-	var cfg Config
-	if err = yaml.Unmarshal(fileBody, &cfg); err != nil {
-		return nil, fmt.Errorf("не удалось разобрать конфигурацию: %w", err)
+		return nil, err
 	}
 	cfg.applyDefaults()
 

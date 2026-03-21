@@ -1,4 +1,4 @@
-package config
+package dbzap
 
 import (
 	"fmt"
