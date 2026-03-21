@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 
+	"github.com/boldlogic/PortfolioLens/pkg/commonconfig"
 	logger "github.com/boldlogic/PortfolioLens/pkg/logger/zap"
 	"github.com/boldlogic/PortfolioLens/pkg/metrics"
 	"github.com/boldlogic/PortfolioLens/pkg/transport/httpserver"
@@ -29,7 +30,8 @@ type Application struct {
 const defaultConfigPath = "task-manager/internal/configs/config.yaml"
 
 func New() (*Application, error) {
-	cfg, err := config.LoadConfig(defaultConfigPath)
+	configPath := commonconfig.GetConfigPath(defaultConfigPath)
+	cfg, err := config.Load(configPath)
 	if err != nil {
 		return &Application{}, err
 	}

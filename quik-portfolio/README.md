@@ -39,12 +39,13 @@
 - SQL Server с применёнными DDL из `scripts/sql/quik-portfolio/`
 - Конфигурационный файл `quik-portfolio/internal/configs/config.yaml`
 
-Пароль БД можно передать через переменную окружения `DB_PASSWORD` (см. `pkg/config`).
+Пароль и пользователя БД можно переопределить через `DB_PASSWORD` и `DB_USER` — см. [`pkg/dbzap/db.go`](../pkg/dbzap/db.go).
 
 Из корня репозитория:
 
 ```bash
 go run ./quik-portfolio/cmd
+go run ./quik-portfolio/cmd -config /path/to/config.yaml
 ```
 
 ---

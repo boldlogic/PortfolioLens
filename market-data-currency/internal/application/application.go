@@ -13,6 +13,7 @@ import (
 	currencyserver "github.com/boldlogic/PortfolioLens/market-data-currency/internal/transport/http"
 	v1 "github.com/boldlogic/PortfolioLens/market-data-currency/internal/transport/http/v1"
 	"github.com/boldlogic/PortfolioLens/market-data-currency/internal/workers"
+	"github.com/boldlogic/PortfolioLens/pkg/commonconfig"
 	logger "github.com/boldlogic/PortfolioLens/pkg/logger/zap"
 	"github.com/boldlogic/PortfolioLens/pkg/metrics"
 	"github.com/boldlogic/PortfolioLens/pkg/periodic"
@@ -36,7 +37,8 @@ type Application struct {
 const defaultConfigPath = "market-data-currency/internal/configs/config.yaml"
 
 func New() (*Application, error) {
-	cfg, err := config.LoadConfig(defaultConfigPath)
+	configPath := commonconfig.GetConfigPath(defaultConfigPath)
+	cfg, err := config.Load(configPath)
 	if err != nil {
 		return &Application{}, err
 	}
