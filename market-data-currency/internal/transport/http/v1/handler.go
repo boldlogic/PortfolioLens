@@ -14,17 +14,13 @@ type CurrencyService interface {
 	GetCurrency(ctx context.Context, charCode string) (models.Currency, string, error)
 }
 
-type CommonHandler interface {
-	Adapt(fn handler.HandlerFunc) http.HandlerFunc
-}
-
 type Handler struct {
-	commonHandler CommonHandler
+	commonHandler handler.Adapter
 	currencySvc   CurrencyService
 	logger        *zap.Logger
 }
 
-func NewHandler(commonHandler CommonHandler, currencySvc CurrencyService, log *zap.Logger) *Handler {
+func NewHandler(commonHandler handler.Adapter, currencySvc CurrencyService, log *zap.Logger) *Handler {
 	return &Handler{
 		logger:        log,
 		currencySvc:   currencySvc,

@@ -21,9 +21,7 @@ func WriteResp(w http.ResponseWriter, status int, data any) {
 	}
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	w.WriteHeader(status)
-	if _, werr := w.Write(body); werr != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-	}
+	_, _ = w.Write(body)
 }
 
 func NotFound(detail string) HTTPErr {

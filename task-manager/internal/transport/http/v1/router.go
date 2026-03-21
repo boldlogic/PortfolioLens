@@ -1,22 +1,26 @@
 package v1
 
 import (
+	"net/http"
+
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 )
 
 type Router struct {
-	Mux     *chi.Mux
-	Handler *Handler
-	logger  *zap.Logger
+	mux    *chi.Mux
+	logger *zap.Logger
+}
+
+func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	r.mux.ServeHTTP(w, req)
 }
 
 func NewRouter(handler *Handler, logger *zap.Logger) *Router {
-	router := chi.NewRouter()
-	router.Post("/tasks", handler.Adapt(handler.CreateTask))
+	r := chi.NewRouter()
+	r.Post("/tasks", handler.Adapt(handler.CreateTask))
 	return &Router{
-		Mux:     router,
-		Handler: handler,
-		logger:  logger,
+		mux:    r,
+		logger: logger,
 	}
 }

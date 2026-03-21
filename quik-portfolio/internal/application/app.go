@@ -9,6 +9,7 @@ import (
 	"time"
 
 	logger "github.com/boldlogic/PortfolioLens/pkg/logger/zap"
+	"github.com/boldlogic/PortfolioLens/pkg/metrics"
 	"github.com/boldlogic/PortfolioLens/pkg/periodic"
 	"github.com/boldlogic/PortfolioLens/pkg/transport/httpserver"
 	"github.com/boldlogic/PortfolioLens/pkg/transport/httpserver/handler"
@@ -72,10 +73,11 @@ func (a *Application) Start(ctx context.Context) error {
 		runner.Run(ctx)
 	}()
 
+	reg := metrics.New()
 	commonHandler := handler.NewHandler()
 	handler := v1.NewHandler(commonHandler, a.svc, a.Logger)
-	router := portfolioserver.NewRouter(handler, a.Logger, &a.cfg.Server)
-	a.server = httpserver.NewServer(router.CommonRouter.Mux, a.cfg.Server)
+	r := portfolioserver.NewRouter(handler, a.Logger, reg)
+	a.server = httpserver.NewServer(r, a.cfg.Server)
 
 	a.wg.Add(1)
 	go func() {
