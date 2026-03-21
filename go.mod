@@ -10,7 +10,6 @@ require (
 	github.com/microsoft/go-mssqldb v1.8.2
 	github.com/prometheus/client_golang v1.23.2
 	github.com/shopspring/decimal v1.4.0
-	github.com/sirupsen/logrus v1.9.3
 	go.uber.org/zap v1.27.1
 	golang.org/x/net v0.43.0
 	golang.org/x/sync v0.16.0
