@@ -12,12 +12,12 @@ import (
 	"github.com/go-playground/validator/v10"
 )
 
-const MaxRequestBodySize = 1024
+const MaxRequestBodySize = 64 * 1024
 
 var (
 	ErrWrongJSON             = errors.New("некорректный формат запроса")
 	ErrUnsupportedMediaType  = errors.New("Content-Type должен быть application/json")
-	ErrRequestEntityTooLarge = errors.New("тело запроса превышает 1 KB")
+	ErrRequestEntityTooLarge = errors.New("тело запроса превышает ограничение")
 )
 
 func checkContentType(r *http.Request) error {

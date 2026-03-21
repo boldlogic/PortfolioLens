@@ -17,17 +17,13 @@ type RefsService interface {
 	GetBoardByID(ctx context.Context, id uint8) (quik.Board, error)
 }
 
-type CommonHandler interface {
-	Adapt(fn handler.HandlerFunc) http.HandlerFunc
-}
-
 type Handler struct {
-	commonHandler CommonHandler
+	commonHandler handler.Adapter
 	refsSvc       RefsService
 	logger        *zap.Logger
 }
 
-func NewHandler(commonHandler CommonHandler, refsSvc RefsService, log *zap.Logger) *Handler {
+func NewHandler(commonHandler handler.Adapter, refsSvc RefsService, log *zap.Logger) *Handler {
 	return &Handler{
 		logger:        log,
 		refsSvc:       refsSvc,

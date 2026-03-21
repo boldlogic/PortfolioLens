@@ -14,8 +14,10 @@ import (
 	v1 "github.com/boldlogic/PortfolioLens/market-data-currency/internal/transport/http/v1"
 	"github.com/boldlogic/PortfolioLens/market-data-currency/internal/workers"
 	logger "github.com/boldlogic/PortfolioLens/pkg/logger/zap"
+	"github.com/boldlogic/PortfolioLens/pkg/metrics"
 	"github.com/boldlogic/PortfolioLens/pkg/periodic"
 	"github.com/boldlogic/PortfolioLens/pkg/transport/httpclient"
+	"github.com/boldlogic/PortfolioLens/pkg/transport/httpclient/clientmetrics"
 	"github.com/boldlogic/PortfolioLens/pkg/transport/httpserver"
 	"github.com/boldlogic/PortfolioLens/pkg/transport/httpserver/handler"
 	"go.uber.org/zap"
@@ -54,9 +56,11 @@ func (a *Application) Start(ctx context.Context) error {
 	}
 	a.repo = repo
 
-	commonClient := httpclient.NewClient(a.cfg.Client)
+	reg := metrics.New()
 
-	httpClient := client.NewClient(commonClient, a.logger)
+	commonClient := httpclient.NewClient(a.cfg.Client)
+	cbrMetrics := clientmetrics.NewMetrics(reg)
+	httpClient := client.NewClient(commonClient, cbrMetrics, "cbr", a.logger)
 
 	cbrParser := cbr.NewParser(a.logger)
 
@@ -79,8 +83,8 @@ func (a *Application) Start(ctx context.Context) error {
 	commonHandler := handler.NewHandler()
 
 	handler := v1.NewHandler(commonHandler, a.svc, a.logger)
-	router := currencyserver.NewRouter(handler, a.logger, &a.cfg.Server)
-	a.server = httpserver.NewServer(router.CommonRouter.Mux, a.cfg.Server)
+	r := currencyserver.NewRouter(handler, a.logger, reg)
+	a.server = httpserver.NewServer(r, a.cfg.Server)
 
 	a.wg.Add(1)
 	go func() {

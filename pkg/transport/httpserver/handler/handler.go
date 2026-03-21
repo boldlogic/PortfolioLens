@@ -8,6 +8,10 @@ import (
 	"github.com/boldlogic/PortfolioLens/pkg/transport/httpserver/httputils"
 )
 
+type Adapter interface {
+	Adapt(fn HandlerFunc) http.HandlerFunc
+}
+
 type Handler struct {
 }
 

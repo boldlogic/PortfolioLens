@@ -11,17 +11,13 @@ import (
 	"go.uber.org/zap"
 )
 
-type CommonHandler interface {
-	Adapt(fn handler.HandlerFunc) http.HandlerFunc
-}
-
 type Handler struct {
-	commonHandler CommonHandler
+	commonHandler handler.Adapter
 	service       Service
 	logger        *zap.Logger
 }
 
-func NewHandler(commonHandler CommonHandler, svc Service, logger *zap.Logger) *Handler {
+func NewHandler(commonHandler handler.Adapter, svc Service, logger *zap.Logger) *Handler {
 	return &Handler{
 		commonHandler: commonHandler,
 		service:       svc,

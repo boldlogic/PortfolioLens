@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	logger "github.com/boldlogic/PortfolioLens/pkg/logger/zap"
+	"github.com/boldlogic/PortfolioLens/pkg/metrics"
 	"github.com/boldlogic/PortfolioLens/pkg/transport/httpserver"
 	"github.com/boldlogic/PortfolioLens/pkg/transport/httpserver/handler"
 	"github.com/boldlogic/PortfolioLens/task-manager/internal/config"
@@ -50,11 +51,12 @@ func (a *Application) Start(ctx context.Context) error {
 
 	a.svc = service.NewService(ctx, a.repo, a.logger)
 
+	reg := metrics.New()
 	commonHandler := handler.NewHandler()
 
 	handler := v1.NewHandler(commonHandler, a.svc, a.logger)
-	router := taskserver.NewRouter(handler, a.logger, &a.cfg.Server)
-	a.server = httpserver.NewServer(router.CommonRouter.Mux, a.cfg.Server)
+	r := taskserver.NewRouter(handler, a.logger, reg)
+	a.server = httpserver.NewServer(r, a.cfg.Server)
 
 	a.wg.Add(1)
 	go func() {

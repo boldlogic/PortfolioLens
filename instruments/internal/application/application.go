@@ -15,6 +15,7 @@ import (
 	v1 "github.com/boldlogic/PortfolioLens/instruments/internal/transport/http/v1"
 	"github.com/boldlogic/PortfolioLens/instruments/internal/workers"
 	logger "github.com/boldlogic/PortfolioLens/pkg/logger/zap"
+	"github.com/boldlogic/PortfolioLens/pkg/metrics"
 	"github.com/boldlogic/PortfolioLens/pkg/periodic"
 	"github.com/boldlogic/PortfolioLens/pkg/transport/httpserver"
 	"github.com/boldlogic/PortfolioLens/pkg/transport/httpserver/handler"
@@ -71,10 +72,11 @@ func (a *Application) Start(ctx context.Context) error {
 		runner.Run(ctx)
 	}()
 
+	reg := metrics.New()
 	commonHandler := handler.NewHandler()
 	h := v1.NewHandler(commonHandler, a.svc, a.Logger)
-	router := instrumentserver.NewRouter(h, a.Logger, &a.cfg.Server)
-	a.server = httpserver.NewServer(router.CommonRouter.Mux, a.cfg.Server)
+	r := instrumentserver.NewRouter(h, a.Logger, reg)
+	a.server = httpserver.NewServer(r, a.cfg.Server)
 
 	a.wg.Add(1)
 	go func() {

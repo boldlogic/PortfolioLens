@@ -13,17 +13,13 @@ type TaskService interface {
 	CreateTask(ctx context.Context, actionCode string, taskUUID string, params map[string]string) (scheduler.Task, error)
 }
 
-type CommonHandler interface {
-	Adapt(fn handler.HandlerFunc) http.HandlerFunc
-}
-
 type Handler struct {
-	commonHandler CommonHandler
+	commonHandler handler.Adapter
 	taskSvc       TaskService
 	logger        *zap.Logger
 }
 
-func NewHandler(commonHandler CommonHandler, taskSvc TaskService, log *zap.Logger) *Handler {
+func NewHandler(commonHandler handler.Adapter, taskSvc TaskService, log *zap.Logger) *Handler {
 	return &Handler{
 		logger:        log,
 		taskSvc:       taskSvc,
